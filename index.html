@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>סטודיו ומפרש יסודות מדעי המחשב ב-C# | אלון שרייבמן</title>
+    <link rel="stylesheet" href="css/style.css?v=1.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>">
+</head>
+<body>
+
+    <!-- סרגל עליון - Header -->
+    <header class="app-header">
+        <div class="header-inner">
+            <div class="brand-title">
+                <div class="brand-icon">💻</div>
+                <div>
+                    <h1>סטודיו יסודות מדעי המחשב ב-C# (10th Grade CS Studio)</h1>
+                    <p>מרכז מדעי המחשב — אלון שרייבמן | תיכון מקיף דוד טוביהו (שכבת י')</p>
+                </div>
+            </div>
+
+            <!-- בורר מצבי סטודיו (Studio Mode Bar) -->
+            <div class="studio-mode-bar" id="studio-mode-bar">
+                <button type="button" class="btn-studio-mode active" data-mode="all" title="הצג את כל רכיבי הזיכרון המשולבים">
+                    <span>🌐</span>
+                    <span>הכל</span>
+                </button>
+                <button type="button" class="btn-studio-mode" data-mode="arrays" title="מיקוד במערכים חד-ממדיים ומצביעים">
+                    <span>📊</span>
+                    <span>מערכים (1D)</span>
+                </button>
+                <button type="button" class="btn-studio-mode" data-mode="matrices" title="מיקוד במטריצות וסריקות דו-ממדיות">
+                    <span>🔲</span>
+                    <span>מטריצות (2D)</span>
+                </button>
+                <button type="button" class="btn-studio-mode" data-mode="strings" title="מיקוד במחרוזות ואינדקסים">
+                    <span>🔤</span>
+                    <span>מחרוזות</span>
+                </button>
+                <button type="button" class="btn-studio-mode" data-mode="functions" title="מיקוד בפונקציות וחישובי Math">
+                    <span>⚙️</span>
+                    <span>פונקציות &amp; Math</span>
+                </button>
+                <button type="button" class="btn-studio-mode" data-mode="classes" title="מיקוד במחלקות ועצמים ב-Heap">
+                    <span>📦</span>
+                    <span>מחלקות ועצמים</span>
+                </button>
+            </div>
+
+            <!-- קישורי ניווט הדדיים לשכבת י"ב -->
+            <div class="header-links">
+                <a href="../../12th_grade_csharp/2_queue/visualizer/index.html" class="btn-link-studio" title="מעבר לסטודיו מבני נתונים של י&quot;ב (תורים, מחסניות, עצים)">
+                    <span>🔄</span>
+                    <span>סטודיו מבני נתונים (י"ב)</span>
+                </a>
+                <a href="../../12th_grade_csharp/4_oop_and_inheritance/visualizer/index.html" class="btn-link-studio" title="מעבר לסטודיו תכנות מונחה עצמים והורשה של י&quot;ב">
+                    <span>🏛️</span>
+                    <span>סטודיו OOP והורשה (י"ב)</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- סרגל אתחול מהיר ובחירת פרסטים (Quick Setup Bar) -->
+    <div class="quick-setup-bar">
+        <div class="quick-setup-group">
+            <span class="quick-setup-label">📚 דוגמת יסוד לבדיקה:</span>
+            <select id="preset-select" class="preset-select">
+                <option value="array_find_max">1. מערך חד-ממדי: מציאת מקסימום ואינדקס</option>
+                <option value="matrix_diagonals">2. מטריצה דו-ממדית: סכום אלכסון ראשי ומשני</option>
+                <option value="string_palindrome">3. מחרוזות ותווים: בדיקת פלינדרום</option>
+                <option value="math_digits_sum">4. פונקציות ו-Math: פירוק מספר לספרות וסכום</option>
+                <option value="oop_students">5. מחלקות ועצמים: מחלקת תלמיד ומערך עצמים</option>
+            </select>
+        </div>
+
+        <div class="quick-setup-group">
+            <span class="quick-setup-label">⚡ אתחול מהיר:</span>
+            <button type="button" id="btn-random-1d" class="btn-quick" title="צור מערך מספרים אקראי והזרק לקוד">🎲 מערך 1D אקראי</button>
+            <button type="button" id="btn-random-mat3" class="btn-quick" title="צור מטריצה 3 על 3 אקראית והזרק לקוד">🎲 מטריצה 3x3</button>
+            <button type="button" id="btn-random-mat4" class="btn-quick" title="צור מטריצה 4 על 4 אקראית והזרק לקוד">🎲 מטריצה 4x4</button>
+        </div>
+    </div>
+
+    <!-- גוף המערכת הראשי - חלוקה לעמודת עורך ועמודת המחשה ויזואלית -->
+    <main class="main-layout">
+
+        <!-- עמודת עורך הקוד (Editor Panel) -->
+        <section class="editor-panel" id="editor-panel">
+            
+            <!-- סרגל לשוניות קבצים -->
+            <div class="editor-tabs-bar">
+                <div id="editor-tabs-list" style="display: flex; gap: 0.25rem;"></div>
+                <button type="button" id="btn-add-tab" class="btn-add-tab" title="הוסף קובץ מחלקה חדש ב-C#">+ מחלקה חדשה</button>
+            </div>
+
+            <!-- גוף עריכת הקוד ומספרי שורות -->
+            <div class="editor-body">
+                <div class="editor-wrapper">
+                    <div class="line-numbers" id="line-numbers"></div>
+                    <textarea id="code-textarea" class="code-textarea" spellcheck="false"></textarea>
+                    <div class="active-line-highlight" id="active-line-highlight"></div>
+                </div>
+
+                <!-- חלון השלמה אוטומטית (Autocomplete) -->
+                <div class="autocomplete-box" id="autocomplete-box"></div>
+            </div>
+
+            <!-- סרגל בקרת דיבאג (Debugger Controls) -->
+            <div class="controls-bar">
+                <div class="playback-buttons">
+                    <button type="button" id="btn-play" class="btn-ctrl btn-ctrl-primary" title="הרץ/השהה הנפשה רציפה">
+                        <span>▶️</span>
+                        <span>נגן</span>
+                    </button>
+                    <button type="button" id="btn-step-prev" class="btn-ctrl btn-ctrl-secondary" title="צעד אחד לאחור">
+                        <span>⏮️</span>
+                        <span>אחורה</span>
+                    </button>
+                    <button type="button" id="btn-step-next" class="btn-ctrl btn-ctrl-secondary" title="צעד אחד קדימה">
+                        <span>⏭️</span>
+                        <span>קדימה</span>
+                    </button>
+                    <button type="button" id="btn-reset" class="btn-ctrl btn-ctrl-secondary" title="איפוס לתחילת הריצה">
+                        <span>🔄</span>
+                        <span>איפוס</span>
+                    </button>
+                </div>
+
+                <div class="speed-control">
+                    <span>מהירות:</span>
+                    <input type="range" id="speed-slider" min="200" max="1100" value="550" title="כוונן את מהירות הריצה">
+                    <span class="step-badge" id="step-badge">0 / 0</span>
+                </div>
+            </div>
+
+            <!-- באנר הודעות ואבחון פדגוגי -->
+            <div class="status-banner" id="status-banner">
+                <span id="status-icon">ℹ️</span>
+                <span id="status-text">טוען סטודיו...</span>
+            </div>
+        </section>
+
+        <!-- פס שינוי רוחב עמודות (Resizer) -->
+        <div class="resizer-h" id="resizer-h" title="גרור לשינוי גודל העמודות"></div>
+
+        <!-- עמודת במת ההמחשה והמעקב (Visual Panel) -->
+        <section class="visual-panel" id="visual-panel">
+
+            <!-- 1. כרטיסיית מערכים חד-ממדיים -->
+            <div class="stage-card" id="card-arrays">
+                <div class="stage-card-header">
+                    <div class="card-title-group">
+                        <span>📊</span>
+                        <span>מערכים חד-ממדיים (1D Arrays &amp; Indices)</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="array-container" class="array-container"></div>
+                </div>
+            </div>
+
+            <!-- 2. כרטיסיית מטריצות דו-ממדיות -->
+            <div class="stage-card" id="card-matrices">
+                <div class="stage-card-header">
+                    <div class="card-title-group">
+                        <span>🔲</span>
+                        <span>מטריצות ורשתות דו-ממדיות (2D Matrix Grid)</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="matrix-container"></div>
+                </div>
+            </div>
+
+            <!-- 3. כרטיסיית מחרוזות ותווים -->
+            <div class="stage-card" id="card-strings">
+                <div class="stage-card-header">
+                    <div class="card-title-group">
+                        <span>🔤</span>
+                        <span>מחרוזות ותווים (Strings &amp; Chars)</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="string-container"></div>
+                </div>
+            </div>
+
+            <!-- 4. כרטיסיית מחלקות ועצמים ב-Heap -->
+            <div class="stage-card" id="card-heap">
+                <div class="stage-card-header">
+                    <div class="card-title-group">
+                        <span>📦</span>
+                        <span>זיכרון ערימה ועצמים (Heap &amp; Objects)</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="heap-container"></div>
+                </div>
+            </div>
+
+            <!-- 5. טבלת מעקב (Dry Run / Trace Table) בסטנדרט בגרות -->
+            <div class="stage-card" id="card-trace-table">
+                <div class="stage-card-header">
+                    <div class="card-title-group">
+                        <span>📋</span>
+                        <span>טבלת מעקב (Trace Table / טבלת יובש) — בסטנדרט בגרות</span>
+                    </div>
+                    <button type="button" id="btn-copy-trace" class="btn-quick" title="העתק את טבלת המעקב ללוח עבור עבודות או מבחנים">
+                        <span>📋</span>
+                        <span>העתק טבלה ללוח</span>
+                    </button>
+                </div>
+                <div class="card-body" style="padding: 0.4rem;">
+                    <div class="trace-table-wrapper">
+                        <table class="trace-table" id="trace-table">
+                            <thead id="trace-thead"></thead>
+                            <tbody id="trace-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. משתנים מקומיים ומחסנית קריאות -->
+            <div class="inspection-grid">
+                <div class="stage-card">
+                    <div class="stage-card-header">
+                        <div class="card-title-group">
+                            <span>🔍</span>
+                            <span>משתנים מקומיים (Scope Variables)</span>
+                        </div>
+                    </div>
+                    <div class="card-body" style="max-height: 160px; overflow-y: auto;">
+                        <table class="simple-table">
+                            <thead>
+                                <tr><th>משתנה</th><th>ערך נוכחי</th></tr>
+                            </thead>
+                            <tbody id="variables-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="stage-card">
+                    <div class="stage-card-header">
+                        <div class="card-title-group">
+                            <span>🥞</span>
+                            <span>מחסנית קריאות (Call Stack)</span>
+                        </div>
+                    </div>
+                    <div class="card-body" style="max-height: 160px; overflow-y: auto;">
+                        <ul id="call-stack-list" style="list-style: none; padding: 0;"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. קונסול פלט (Console Output) -->
+            <div class="stage-card">
+                <div class="stage-card-header">
+                    <div class="card-title-group">
+                        <span>💻</span>
+                        <span>קונסול פלט (Console Output)</span>
+                    </div>
+                    <button type="button" id="btn-clear-console" class="btn-quick" title="נקה את פלט הקונסול">נקה פלט</button>
+                </div>
+                <div class="card-body" style="padding: 0.5rem;">
+                    <div class="console-box" id="console-output"></div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- טעינת סקריפטים -->
+    <script src="js/presets.js"></script>
+    <script src="js/autocomplete.js"></script>
+    <script src="js/csharp_10th_interpreter.js"></script>
+    <script src="js/visualizer.js"></script>
+</body>
+</html>

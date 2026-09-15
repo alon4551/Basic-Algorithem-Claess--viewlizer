@@ -1,0 +1,220 @@
+/**
+ * Presets Library - 10th Grade C# Fundamentals
+ * מרכז מדעי המחשב - בית ספר מקיף דוד טוביהו | אלון שרייבמן
+ * 5 דוגמאות בסיס קנוניות המייצגות את נושאי הליבה של שכבת י'
+ */
+
+const PRESETS_10TH = {
+    'array_find_max': {
+        id: 'array_find_max',
+        title: '1. מערך חד-ממדי: מציאת מקסימום ואינדקס',
+        category: 'arrays',
+        categoryName: 'מערכים (1D)',
+        description: 'סריקה ליניארית של מערך מספרים שלמים, מציאת הערך המקסימלי ומיקומו (אינדקס) במערך.',
+        files: {
+            'Program.cs': `public class Program
+{
+    public static void Main()
+    {
+        int[] arr = { 14, 52, 28, 89, 41, 63 };
+        
+        int maxVal = arr[0];
+        int maxIndex = 0;
+        
+        for (int i = 1; i < arr.Length; i++)
+        {
+            if (arr[i] > maxVal)
+            {
+                maxVal = arr[i];
+                maxIndex = i;
+            }
+        }
+        
+        Console.WriteLine("הערך המקסימלי שנמצא: " + maxVal);
+        Console.WriteLine("מיקום המקסימום (אינדקס): " + maxIndex);
+    }
+}`
+        }
+    },
+
+    'matrix_diagonals': {
+        id: 'matrix_diagonals',
+        title: '2. מטריצה דו-ממדית: סכום אלכסון ראשי ומשני',
+        category: 'matrices',
+        categoryName: 'מטריצות (2D)',
+        description: 'סריקת מטריצה ריבועית (3x3), חישוב סכום האלכסון הראשי (i == j) וסכום האלכסון המשני (i + j == n - 1), ובדיקה האם הם שווים.',
+        files: {
+            'Program.cs': `public class Program
+{
+    public static void Main()
+    {
+        // הגדרת מטריצה ריבועית 3 על 3
+        int[,] mat = {
+            { 8, 3, 5 },
+            { 4, 6, 2 },
+            { 7, 1, 9 }
+        };
+        
+        int n = mat.GetLength(0);
+        int mainDiagSum = 0;
+        int secondaryDiagSum = 0;
+        
+        for (int i = 0; i < n; i++)
+        {
+            // איבר באלכסון הראשי
+            mainDiagSum += mat[i, i];
+            
+            // איבר באלכסון המשני
+            secondaryDiagSum += mat[i, n - 1 - i];
+        }
+        
+        Console.WriteLine("סכום אלכסון ראשי: " + mainDiagSum);
+        Console.WriteLine("סכום אלכסון משני: " + secondaryDiagSum);
+        
+        if (mainDiagSum == secondaryDiagSum)
+        {
+            Console.WriteLine("האלכסונים שווים בסכומם!");
+        }
+        else
+        {
+            Console.WriteLine("האלכסונים אינם שווים.");
+        }
+    }
+}`
+        }
+    },
+
+    'string_palindrome': {
+        id: 'string_palindrome',
+        title: '3. מחרוזות ותווים: בדיקת פלינדרום',
+        category: 'strings',
+        categoryName: 'מחרוזות (Strings)',
+        description: 'בדיקה האם מילה נקראת אותו הדבר משני הכיוונים באמצעות שני מצביעים (left ו-right) שנעים מהקצוות למרכז.',
+        files: {
+            'Program.cs': `public class Program
+{
+    public static void Main()
+    {
+        string word = "RADAR";
+        bool isPalindrome = true;
+        
+        int left = 0;
+        int right = word.Length - 1;
+        
+        while (left < right)
+        {
+            if (word[left] != word[right])
+            {
+                isPalindrome = false;
+                break;
+            }
+            left++;
+            right--;
+        }
+        
+        if (isPalindrome)
+        {
+            Console.WriteLine("המילה " + word + " היא פלינדרום!");
+        }
+        else
+        {
+            Console.WriteLine("המילה " + word + " אינה פלינדרום.");
+        }
+    }
+}`
+        }
+    },
+
+    'math_digits_sum': {
+        id: 'math_digits_sum',
+        title: '4. פונקציות ו-Math: פירוק מספר לספרות וסכום',
+        category: 'functions',
+        categoryName: 'פונקציות ו-Math',
+        description: 'פונקציה סטטית המקבלת מספר שלם ומחשבת את סכום ספרותיו בעזרת אופרטור מודולו (% 10) לחילוץ ספרת אחדות וחילוק שלם (/ 10) להסרתה.',
+        files: {
+            'Program.cs': `public class Program
+{
+    // פונקציה המחשבת ומחזירה את סכום הספרות של מספר חיובי
+    public static int SumOfDigits(int num)
+    {
+        int sum = 0;
+        int temp = Math.Abs(num);
+        
+        while (temp > 0)
+        {
+            int lastDigit = temp % 10; // חילוץ ספרת אחדות
+            sum += lastDigit;
+            temp = temp / 10;          // הסרת ספרת אחדות
+        }
+        
+        return sum;
+    }
+
+    public static void Main()
+    {
+        int number = 4725;
+        int result = SumOfDigits(number);
+        
+        Console.WriteLine("המספר: " + number);
+        Console.WriteLine("סכום הספרות המחושב: " + result);
+    }
+}`
+        }
+    },
+
+    'oop_students': {
+        id: 'oop_students',
+        title: '5. מחלקות ועצמים: מחלקת תלמיד ומערך עצמים',
+        category: 'classes',
+        categoryName: 'מחלקות ועצמים (OOP)',
+        description: 'הגדרת מחלקת תלמיד (Student) עם שדות, בנאי ומתודה, יצירת מערך תלמידים ומציאת התלמיד בעל הציון הגבוה ביותר.',
+        files: {
+            'Program.cs': `public class Program
+{
+    public static void Main()
+    {
+        // יצירת מערך של עצמים מסוג Student
+        Student[] classroom = new Student[3];
+        
+        classroom[0] = new Student("נועה", 88);
+        classroom[1] = new Student("איתי", 96);
+        classroom[2] = new Student("מאיה", 91);
+        
+        Student topStudent = classroom[0];
+        
+        for (int i = 1; i < classroom.Length; i++)
+        {
+            if (classroom[i].grade > topStudent.grade)
+            {
+                topStudent = classroom[i];
+            }
+        }
+        
+        Console.WriteLine("התלמיד המצטיין הוא: " + topStudent.name);
+        Console.WriteLine("עם הציון: " + topStudent.grade);
+    }
+}`,
+            'Student.cs': `public class Student
+{
+    public string name;
+    public int grade;
+    
+    // בנאי (Constructor)
+    public Student(string name, int grade)
+    {
+        this.name = name;
+        this.grade = grade;
+    }
+    
+    public bool IsPassing()
+    {
+        return this.grade >= 55;
+    }
+}`
+        }
+    }
+};
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = PRESETS_10TH;
+}

@@ -1,0 +1,882 @@
+/* 
+ * מרכז מדעי המחשב - בית ספר מקיף דוד טוביהו | אלון שרייבמן
+ * עיצוב סטודיו ומפרש C# לשכבת י' (יסודות מדעי המחשב)
+ * תקן כיווניות: RTL לממשק עברית, LTR לקוד ולמבני נתונים.
+ */
+
+:root {
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --primary-light: #eff6ff;
+    --accent: #0ea5e9;
+    --success: #10b981;
+    --success-bg: #ecfdf5;
+    --warning: #f59e0b;
+    --warning-bg: #fffbeb;
+    --danger: #ef4444;
+    --danger-bg: #fef2f2;
+    --bg-main: #f1f5f9;
+    --bg-card: #ffffff;
+    --border: #cbd5e1;
+    --border-dark: #94a3b8;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --code-bg: #1e1e2e;
+    --code-text: #cdd6f4;
+    --active-line: rgba(59, 130, 246, 0.28);
+    --error-line: rgba(239, 68, 68, 0.35);
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, 'Heebo', sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    direction: rtl;
+    text-align: right;
+    line-height: 1.4;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+@media (max-width: 1100px) {
+    body {
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto;
+    }
+}
+
+/* סרגל עליון - Header */
+.app-header {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: #ffffff;
+    padding: 0.5rem 1.25rem;
+    box-shadow: var(--shadow-md);
+    border-bottom: 3px solid var(--accent);
+    flex-shrink: 0;
+}
+
+.header-inner {
+    max-width: 1800px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.brand-title {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.brand-icon {
+    font-size: 1.6rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+}
+
+.brand-title h1 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.brand-title p {
+    font-size: 0.78rem;
+    color: #94a3b8;
+}
+
+/* בורר מצבי סטודיו (Studio Mode Bar) */
+.studio-mode-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 0.25rem 0.4rem;
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.btn-studio-mode {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #cbd5e1;
+    padding: 0.25rem 0.65rem;
+    border-radius: 18px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+
+.btn-studio-mode:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+}
+
+.btn-studio-mode.active {
+    background: var(--primary);
+    color: #ffffff;
+    font-weight: 600;
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
+}
+
+.header-links {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-link-studio {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e2e8f0;
+    padding: 0.3rem 0.65rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.btn-link-studio:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--accent);
+    color: #38bdf8;
+}
+
+/* סרגל אתחול מהיר (Quick Setup Bar) */
+.quick-setup-bar {
+    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+    padding: 0.4rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+    flex-shrink: 0;
+}
+
+.quick-setup-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.quick-setup-label {
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.preset-select {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border-dark);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    background: #f8fafc;
+    color: var(--text-main);
+    cursor: pointer;
+    max-width: 320px;
+}
+
+.btn-quick {
+    background: #f1f5f9;
+    border: 1px solid var(--border-dark);
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-quick:hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/* חלוקה ראשית לעמודות */
+.main-layout {
+    display: flex;
+    flex: 1;
+    height: calc(100vh - 105px);
+    overflow: hidden;
+    position: relative;
+}
+
+/* עמודת עורך הקוד */
+.editor-panel {
+    flex: 0 0 46%;
+    min-width: 360px;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border-left: 1px solid var(--border);
+    height: 100%;
+    overflow: hidden;
+}
+
+/* פס גרירה ושינוי גודל */
+.resizer-h {
+    width: 6px;
+    background: #e2e8f0;
+    cursor: col-resize;
+    transition: background 0.2s ease;
+    flex-shrink: 0;
+}
+
+.resizer-h:hover, .resizer-h.resizing {
+    background: var(--primary);
+}
+
+/* עמודת ההמחשה הויזואלית */
+.visual-panel {
+    flex: 1;
+    min-width: 450px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-main);
+    height: 100%;
+    overflow-y: auto;
+    padding: 0.65rem;
+    gap: 0.65rem;
+}
+
+/* סרגל כרטיסיות קבצים בעורך */
+.editor-tabs-bar {
+    display: flex;
+    align-items: center;
+    background: #1e1e2e;
+    border-bottom: 1px solid #313244;
+    padding: 0.25rem 0.5rem 0 0.5rem;
+    overflow-x: auto;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.tab-file {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: #181825;
+    color: #a6adc8;
+    border: 1px solid #313244;
+    border-bottom: none;
+    padding: 0.3rem 0.65rem;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    font-family: Consolas, 'Fira Code', monospace;
+    direction: ltr;
+}
+
+.tab-file.active {
+    background: #25263a;
+    color: #89b4fa;
+    border-color: #45475a;
+    font-weight: 600;
+}
+
+.tab-close-btn {
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #9399b2;
+    border-radius: 50%;
+    padding: 0 0.2rem;
+}
+
+.tab-close-btn:hover {
+    color: #f38ba8;
+}
+
+.btn-add-tab {
+    background: transparent;
+    border: 1px dashed #45475a;
+    color: #a6adc8;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    margin-right: 0.3rem;
+}
+
+.btn-add-tab:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #cdd6f4;
+}
+
+/* גוף עורך הקוד */
+.editor-body {
+    position: relative;
+    flex: 1;
+    background: var(--code-bg);
+    overflow: hidden;
+    font-family: Consolas, 'Fira Code', Monaco, monospace;
+    font-size: 0.88rem;
+    line-height: 1.45rem;
+}
+
+.editor-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+}
+
+.line-numbers {
+    width: 44px;
+    background: #181825;
+    color: #585b70;
+    padding: 0.65rem 0.3rem 0.65rem 0;
+    text-align: center;
+    user-select: none;
+    font-size: 0.82rem;
+    line-height: 1.45rem;
+    border-right: 1px solid #313244;
+    direction: ltr;
+    overflow: hidden;
+}
+
+.code-textarea {
+    flex: 1;
+    background: transparent;
+    color: var(--code-text);
+    border: none;
+    outline: none;
+    padding: 0.65rem 0.85rem;
+    resize: none;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    white-space: pre;
+    overflow: auto;
+    direction: ltr;
+    text-align: left;
+    tab-size: 4;
+}
+
+.active-line-highlight {
+    position: absolute;
+    left: 44px;
+    right: 0;
+    background: var(--active-line);
+    border-left: 3px solid #38bdf8;
+    pointer-events: none;
+    transition: top 0.1s ease;
+    display: none;
+}
+
+/* סרגל בקרת דיבאג (Debugger Controls) */
+.controls-bar {
+    background: #181825;
+    border-top: 1px solid #313244;
+    padding: 0.45rem 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.playback-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-ctrl {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+}
+
+.btn-ctrl-primary {
+    background: var(--primary);
+    color: #ffffff;
+}
+
+.btn-ctrl-primary:hover {
+    background: var(--primary-hover);
+}
+
+.btn-ctrl-secondary {
+    background: #313244;
+    color: #cdd6f4;
+    border-color: #45475a;
+}
+
+.btn-ctrl-secondary:hover {
+    background: #45475a;
+    color: #ffffff;
+}
+
+.speed-control {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    color: #a6adc8;
+}
+
+.speed-control input[type="range"] {
+    width: 80px;
+    cursor: pointer;
+}
+
+.step-badge {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 0.2rem 0.55rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: Consolas, monospace;
+}
+
+/* באנר סטטוס / הודעה פדגוגית */
+.status-banner {
+    padding: 0.45rem 0.85rem;
+    background: #f8fafc;
+    border-top: 1px solid var(--border);
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.status-banner.error {
+    background: var(--danger-bg);
+    color: #991b1b;
+    border-color: #fecaca;
+    font-weight: 600;
+}
+
+.status-banner.success {
+    background: var(--success-bg);
+    color: #065f46;
+    border-color: #a7f3d0;
+}
+
+/* כרטיסי במת ההמחשה */
+.stage-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.stage-card-header {
+    background: #f8fafc;
+    border-bottom: 1px solid var(--border);
+    padding: 0.45rem 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.card-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.card-body {
+    padding: 0.75rem;
+    overflow-x: auto;
+}
+
+/* 1. המחשת מערך חד-ממדי (1D Array) */
+.array-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 0.5rem 0;
+}
+
+.array-box-wrapper {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+
+.array-name-badge {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--primary);
+    font-family: Consolas, monospace;
+    direction: ltr;
+    margin-bottom: 0.5rem;
+}
+
+.array-cells-row {
+    display: flex;
+    gap: 0.4rem;
+    direction: ltr;
+    align-items: flex-end;
+}
+
+.array-cell-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.array-cell-pointer {
+    min-height: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #dc2626;
+    animation: bounce 0.6s infinite alternate;
+}
+
+.array-cell-box {
+    width: 46px;
+    height: 46px;
+    background: #ffffff;
+    border: 2px solid var(--border-dark);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-main);
+    font-family: Consolas, monospace;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+}
+
+.array-cell-box.highlight {
+    border-color: #0284c7;
+    background: #e0f2fe;
+    color: #0369a1;
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(14, 165, 233, 0.4);
+}
+
+.array-cell-box.pointer-active {
+    border-color: #dc2626;
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.array-cell-index {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-family: Consolas, monospace;
+}
+
+/* 2. המחשת מטריצה דו-ממדית (2D Matrix) */
+.matrix-container {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    direction: ltr;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+
+.matrix-grid {
+    border-collapse: collapse;
+}
+
+.matrix-grid th, .matrix-grid td {
+    padding: 0.35rem;
+    text-align: center;
+    font-family: Consolas, monospace;
+}
+
+.matrix-grid th {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.matrix-cell {
+    width: 44px;
+    height: 44px;
+    background: #ffffff;
+    border: 1.5px solid var(--border-dark);
+    border-radius: 5px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.matrix-cell.active-cell {
+    border-color: #2563eb;
+    background: #dbeafe;
+    color: #1e40af;
+    transform: scale(1.08);
+    box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
+}
+
+.matrix-cell.diag-main {
+    border-style: double;
+    border-color: #8b5cf6;
+}
+
+.matrix-cell.diag-sec {
+    border-color: #ec4899;
+}
+
+/* 3. המחשת מחרוזות (Strings) */
+.string-row {
+    display: flex;
+    gap: 0.25rem;
+    direction: ltr;
+    margin-top: 0.3rem;
+}
+
+.string-char-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.string-char-box {
+    width: 36px;
+    height: 38px;
+    background: #ffffff;
+    border: 1.5px solid #a855f7;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #6b21a8;
+    font-family: Consolas, monospace;
+}
+
+/* 4. המחשת אובייקטים ב-Heap */
+.heap-cards-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.object-card {
+    background: #ffffff;
+    border: 2px solid #6366f1;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    min-width: 180px;
+    box-shadow: var(--shadow-sm);
+}
+
+.object-card-header {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #4f46e5;
+    border-bottom: 1px solid #e0e7ff;
+    padding-bottom: 0.25rem;
+    margin-bottom: 0.4rem;
+    direction: ltr;
+}
+
+.object-field-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    padding: 0.15rem 0;
+    direction: ltr;
+    font-family: Consolas, monospace;
+}
+
+.field-name {
+    color: #475569;
+}
+
+.field-val {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+/* טבלת מעקב (Trace Table / Dry Run Table) */
+.trace-table-wrapper {
+    max-height: 240px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+.trace-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    text-align: right;
+    direction: rtl;
+}
+
+.trace-table th {
+    background: #f1f5f9;
+    padding: 0.45rem 0.6rem;
+    font-weight: 700;
+    border-bottom: 2px solid var(--border-dark);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    color: var(--text-main);
+}
+
+.trace-table td {
+    padding: 0.35rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    font-family: Consolas, 'Segoe UI', monospace;
+}
+
+.trace-table tr:hover {
+    background: #f8fafc;
+    cursor: pointer;
+}
+
+.trace-table tr.active-trace-row {
+    background: #dbeafe !important;
+    font-weight: 700;
+    border-left: 3px solid var(--primary);
+}
+
+/* משתנים ומחסנית קריאות */
+.inspection-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+}
+
+.simple-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    direction: ltr;
+    text-align: left;
+}
+
+.simple-table th {
+    background: #f8fafc;
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+}
+
+.simple-table td {
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    font-family: Consolas, monospace;
+}
+
+/* קונסול פלט */
+.console-box {
+    background: #0f172a;
+    color: #4ade80;
+    font-family: Consolas, monospace;
+    font-size: 0.82rem;
+    padding: 0.65rem;
+    border-radius: 6px;
+    min-height: 75px;
+    max-height: 140px;
+    overflow-y: auto;
+    direction: ltr;
+    text-align: left;
+    white-space: pre-wrap;
+}
+
+/* חלון השלמה אוטומטית (Autocomplete Dropdown) */
+.autocomplete-box {
+    position: absolute;
+    background: #181825;
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    display: none;
+    max-height: 220px;
+    overflow-y: auto;
+    min-width: 260px;
+    font-family: Consolas, monospace;
+    font-size: 0.82rem;
+    direction: ltr;
+}
+
+.autocomplete-item {
+    padding: 0.35rem 0.65rem;
+    color: #cdd6f4;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.autocomplete-item:hover, .autocomplete-item.active {
+    background: #313244;
+    color: #89b4fa;
+}
+
+.ac-text {
+    font-weight: 700;
+    color: #89b4fa;
+}
+
+.ac-desc {
+    font-size: 0.75rem;
+    color: #6c7086;
+}
+
+/* אנימציות */
+@keyframes bounce {
+    from { transform: translateY(0); }
+    to { transform: translateY(-4px); }
+}
