@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>סטודיו ומפרש יסודות מדעי המחשב ב-C# | אלון שרייבמן</title>
-    <link rel="stylesheet" href="css/style.css?v=1.0">
+    <link rel="stylesheet" href="css/style.css?v=1.2">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>">
 </head>
 <body>
@@ -62,11 +62,12 @@
         </div>
     </header>
 
-    <!-- סרגל אתחול מהיר ובחירת פרסטים (Quick Setup Bar) -->
+    <!-- סרגל עליון: בחירת דוגמה ופרסטים -->
     <div class="quick-setup-bar">
         <div class="quick-setup-group">
-            <span class="quick-setup-label">📚 דוגמת יסוד לבדיקה:</span>
+            <span class="quick-setup-label">📚 דוגמה לבדיקה מהירה:</span>
             <select id="preset-select" class="preset-select">
+                <option value="empty_main" selected>0. תוכנית ריקה (פרויקט ברירת מחדל)</option>
                 <option value="array_find_max">1. מערך חד-ממדי: מציאת מקסימום ואינדקס</option>
                 <option value="matrix_diagonals">2. מטריצה דו-ממדית: סכום אלכסון ראשי ומשני</option>
                 <option value="string_palindrome">3. מחרוזות ותווים: בדיקת פלינדרום</option>
@@ -76,17 +77,17 @@
         </div>
 
         <div class="quick-setup-group">
-            <span class="quick-setup-label">⚡ אתחול מהיר:</span>
-            <button type="button" id="btn-random-1d" class="btn-quick" title="צור מערך מספרים אקראי והזרק לקוד">🎲 מערך 1D אקראי</button>
-            <button type="button" id="btn-random-mat3" class="btn-quick" title="צור מטריצה 3 על 3 אקראית והזרק לקוד">🎲 מטריצה 3x3</button>
-            <button type="button" id="btn-random-mat4" class="btn-quick" title="צור מטריצה 4 על 4 אקראית והזרק לקוד">🎲 מטריצה 4x4</button>
+            <button type="button" id="btn-toggle-init-card" class="btn-quick" style="font-weight: 600;" title="פתח/סגור חלונית אתחול נתונים גמישה">
+                <span>⚙️</span>
+                <span>הגדרת נתוני קלט גמישה (Setup)</span>
+            </button>
         </div>
     </div>
 
-    <!-- גוף המערכת הראשי - חלוקה לעמודת עורך ועמודת המחשה ויזואלית -->
-    <main class="main-layout">
+    <!-- גוף המערכת הראשי: עורך קוד משמאל, מחיצה מתכווננת, במת המחשה מימין -->
+    <main class="main-layout" id="main-layout">
 
-        <!-- עמודת עורך הקוד (Editor Panel) -->
+        <!-- 1. עמודת עורך הקוד (משמאל) -->
         <section class="editor-panel" id="editor-panel">
             
             <!-- סרגל לשוניות קבצים -->
@@ -145,8 +146,92 @@
         <!-- פס שינוי רוחב עמודות (Resizer) -->
         <div class="resizer-h" id="resizer-h" title="גרור לשינוי גודל העמודות"></div>
 
-        <!-- עמודת במת ההמחשה והמעקב (Visual Panel) -->
+        <!-- 2. עמודת במת ההמחשה והמעקב (מימין) -->
         <section class="visual-panel" id="visual-panel">
+
+            <!-- חלונית אתחול נתונים גמישה (Flexible Data Setup & Inputs) -->
+            <div class="stage-card" id="card-flexible-init">
+                <div class="stage-card-header">
+                    <div class="card-title-group">
+                        <span>⚙️</span>
+                        <span>חלונית אתחול נתונים והזנת קלט גמישה (Data Setup)</span>
+                    </div>
+                    <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
+                </div>
+                <div class="card-body" id="flexible-init-body">
+                    <!-- בורר טיפוס אתחול: מערך, מטריצה, מחרוזת, קלט קונסול -->
+                    <div class="init-type-tabs">
+                        <button type="button" class="btn-init-type active" data-init="array">📊 מערך 1D</button>
+                        <button type="button" class="btn-init-type" data-init="matrix">🔲 מטריצה 2D</button>
+                        <button type="button" class="btn-init-type" data-init="string">🔤 מחרוזת</button>
+                        <button type="button" class="btn-init-type" data-init="console">⌨️ קלט לקונסול</button>
+                    </div>
+
+                    <!-- 1. אתחול מערך 1D -->
+                    <div class="init-panel-pane active" id="init-pane-array">
+                        <div class="init-form-row">
+                            <label>ערכי המערך (הזן מספרים מופרדים בפסיק):</label>
+                            <input type="text" id="init-array-input" class="input-text" value="14, 52, 28, 89, 41, 63" placeholder="14, 52, 28, 89, 41, 63">
+                        </div>
+                        <div class="init-form-controls">
+                            <div class="control-field">
+                                <span>גודל אקראי:</span>
+                                <input type="number" id="init-array-size" min="2" max="12" value="6" style="width: 50px;">
+                            </div>
+                            <div class="control-field">
+                                <span>טווח ערכים:</span>
+                                <input type="number" id="init-array-min" value="10" style="width: 50px;">
+                                <span>..</span>
+                                <input type="number" id="init-array-max" value="99" style="width: 50px;">
+                            </div>
+                            <button type="button" id="btn-init-rand-array" class="btn-quick">🎲 הגרל ערכים</button>
+                            <button type="button" id="btn-init-apply-array" class="btn-ctrl btn-ctrl-primary" style="padding: 0.25rem 0.65rem;">🔄 עדכן והחל בקוד</button>
+                        </div>
+                    </div>
+
+                    <!-- 2. אתחול מטריצה 2D -->
+                    <div class="init-panel-pane" id="init-pane-matrix" style="display: none;">
+                        <div class="init-form-controls" style="margin-bottom: 0.5rem;">
+                            <div class="control-field">
+                                <span>שורות:</span>
+                                <input type="number" id="init-mat-rows" min="2" max="5" value="3" style="width: 50px;">
+                            </div>
+                            <div class="control-field">
+                                <span>עמודות:</span>
+                                <input type="number" id="init-mat-cols" min="2" max="5" value="3" style="width: 50px;">
+                            </div>
+                            <button type="button" id="btn-init-rand-mat" class="btn-quick">🎲 הגרל מטריצה</button>
+                            <button type="button" id="btn-init-apply-mat" class="btn-ctrl btn-ctrl-primary" style="padding: 0.25rem 0.65rem;">🔄 עדכן והחל בקוד</button>
+                        </div>
+                        <div class="init-form-row">
+                            <label>ערכי שורות (כל שורה בנפרד, מופרדת בפסיקים):</label>
+                            <textarea id="init-mat-input" class="textarea-input" rows="3" placeholder="8, 3, 5&#10;4, 6, 2&#10;7, 1, 9">8, 3, 5&#10;4, 6, 2&#10;7, 1, 9</textarea>
+                        </div>
+                    </div>
+
+                    <!-- 3. אתחול מחרוזת -->
+                    <div class="init-panel-pane" id="init-pane-string" style="display: none;">
+                        <div class="init-form-row">
+                            <label>הזן מילה / מחרוזת לבדיקה:</label>
+                            <input type="text" id="init-string-input" class="input-text" value="RADAR" placeholder="RADAR">
+                        </div>
+                        <div class="init-form-controls">
+                            <button type="button" id="btn-init-apply-string" class="btn-ctrl btn-ctrl-primary" style="padding: 0.25rem 0.65rem;">🔄 עדכן והחל בקוד</button>
+                        </div>
+                    </div>
+
+                    <!-- 4. קלט לקונסול Console.ReadLine -->
+                    <div class="init-panel-pane" id="init-pane-console" style="display: none;">
+                        <div class="init-form-row">
+                            <label>תור קלט עבור Console.ReadLine() (כל שורה = קלט לקריאה אחת):</label>
+                            <textarea id="init-console-inputs" class="textarea-input" rows="2" placeholder="4725"></textarea>
+                        </div>
+                        <div class="init-form-controls">
+                            <button type="button" id="btn-init-apply-console" class="btn-ctrl btn-ctrl-primary" style="padding: 0.25rem 0.65rem;">🔄 עדכן תור קלט והרץ</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- 1. כרטיסיית מערכים חד-ממדיים -->
             <div class="stage-card" id="card-arrays">
@@ -155,6 +240,7 @@
                         <span>📊</span>
                         <span>מערכים חד-ממדיים (1D Arrays &amp; Indices)</span>
                     </div>
+                    <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
                 </div>
                 <div class="card-body">
                     <div id="array-container" class="array-container"></div>
@@ -168,6 +254,7 @@
                         <span>🔲</span>
                         <span>מטריצות ורשתות דו-ממדיות (2D Matrix Grid)</span>
                     </div>
+                    <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
                 </div>
                 <div class="card-body">
                     <div id="matrix-container"></div>
@@ -181,6 +268,7 @@
                         <span>🔤</span>
                         <span>מחרוזות ותווים (Strings &amp; Chars)</span>
                     </div>
+                    <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
                 </div>
                 <div class="card-body">
                     <div id="string-container"></div>
@@ -194,6 +282,7 @@
                         <span>📦</span>
                         <span>זיכרון ערימה ועצמים (Heap &amp; Objects)</span>
                     </div>
+                    <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
                 </div>
                 <div class="card-body">
                     <div id="heap-container"></div>
@@ -207,10 +296,13 @@
                         <span>📋</span>
                         <span>טבלת מעקב (Trace Table / טבלת יובש) — בסטנדרט בגרות</span>
                     </div>
-                    <button type="button" id="btn-copy-trace" class="btn-quick" title="העתק את טבלת המעקב ללוח עבור עבודות או מבחנים">
-                        <span>📋</span>
-                        <span>העתק טבלה ללוח</span>
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <button type="button" id="btn-copy-trace" class="btn-quick" title="העתק את טבלת המעקב ללוח עבור עבודות או מבחנים">
+                            <span>📋</span>
+                            <span>העתק טבלה ללוח</span>
+                        </button>
+                        <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
+                    </div>
                 </div>
                 <div class="card-body" style="padding: 0.4rem;">
                     <div class="trace-table-wrapper">
@@ -222,16 +314,32 @@
                 </div>
             </div>
 
-            <!-- 6. משתנים מקומיים ומחסנית קריאות -->
-            <div class="inspection-grid">
-                <div class="stage-card">
-                    <div class="stage-card-header">
-                        <div class="card-title-group">
+            <!-- 6. כרטיסיית בדיקה ממוזערת עם לשוניות (משתנים, מחסנית, פלט) -->
+            <div class="stage-card" id="card-inspection">
+                <div class="stage-card-header">
+                    <div class="inspection-tabs-nav">
+                        <button type="button" class="tab-btn-insp active" data-tab="vars">
                             <span>🔍</span>
-                            <span>משתנים מקומיים (Scope Variables)</span>
-                        </div>
+                            <span>משתנים (Variables)</span>
+                        </button>
+                        <button type="button" class="tab-btn-insp" data-tab="stack">
+                            <span>🥞</span>
+                            <span>מחסנית קריאות (Stack)</span>
+                        </button>
+                        <button type="button" class="tab-btn-insp" data-tab="console">
+                            <span>💻</span>
+                            <span>פלט קונסול (Terminal)</span>
+                            <span class="badge-count" id="console-badge" style="display: none;">0</span>
+                        </button>
                     </div>
-                    <div class="card-body" style="max-height: 160px; overflow-y: auto;">
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <button type="button" id="btn-clear-console" class="btn-quick" style="display: none;" title="נקה פלט קונסול">נקה פלט</button>
+                        <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
+                    </div>
+                </div>
+                <div class="card-body" id="inspection-body">
+                    <!-- טאב משתנים -->
+                    <div class="insp-pane active" id="pane-vars">
                         <table class="simple-table">
                             <thead>
                                 <tr><th>משתנה</th><th>ערך נוכחי</th></tr>
@@ -239,32 +347,16 @@
                             <tbody id="variables-tbody"></tbody>
                         </table>
                     </div>
-                </div>
 
-                <div class="stage-card">
-                    <div class="stage-card-header">
-                        <div class="card-title-group">
-                            <span>🥞</span>
-                            <span>מחסנית קריאות (Call Stack)</span>
-                        </div>
-                    </div>
-                    <div class="card-body" style="max-height: 160px; overflow-y: auto;">
+                    <!-- טאב מחסנית קריאות -->
+                    <div class="insp-pane" id="pane-stack" style="display: none;">
                         <ul id="call-stack-list" style="list-style: none; padding: 0;"></ul>
                     </div>
-                </div>
-            </div>
 
-            <!-- 7. קונסול פלט (Console Output) -->
-            <div class="stage-card">
-                <div class="stage-card-header">
-                    <div class="card-title-group">
-                        <span>💻</span>
-                        <span>קונסול פלט (Console Output)</span>
+                    <!-- טאב פלט קונסול -->
+                    <div class="insp-pane" id="pane-console" style="display: none;">
+                        <div class="console-box" id="console-output"></div>
                     </div>
-                    <button type="button" id="btn-clear-console" class="btn-quick" title="נקה את פלט הקונסול">נקה פלט</button>
-                </div>
-                <div class="card-body" style="padding: 0.5rem;">
-                    <div class="console-box" id="console-output"></div>
                 </div>
             </div>
 

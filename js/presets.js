@@ -5,6 +5,24 @@
  */
 
 const PRESETS_10TH = {
+    'empty_main': {
+        id: 'empty_main',
+        title: '0. תוכנית ריקה (פרויקט ברירת מחדל)',
+        category: 'all',
+        categoryName: 'ברירת מחדל',
+        description: 'תבנית C# בסיסית ונקייה עם פונקציית Main בלבד, מוכנה לכתיבת קוד אישי.',
+        files: {
+            'Program.cs': `public class Program
+{
+    public static void Main()
+    {
+        // כתוב את הקוד שלך כאן
+        Console.WriteLine("שלום עולם!");
+    }
+}`
+        }
+    },
+
     'array_find_max': {
         id: 'array_find_max',
         title: '1. מערך חד-ממדי: מציאת מקסימום ואינדקס',

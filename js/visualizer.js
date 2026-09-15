@@ -17,7 +17,7 @@ class Visualizer10thApp {
         this.editorFiles = {
             'Program.cs': {
                 name: 'Program.cs',
-                code: PRESETS_10TH['array_find_max'].files['Program.cs']
+                code: PRESETS_10TH['empty_main'].files['Program.cs']
             }
         };
         this.activeFileName = 'Program.cs';
@@ -30,15 +30,35 @@ class Visualizer10thApp {
         this.setupAutocomplete();
         this.renderTabs();
         this.setupResizer();
-        this.loadPreset('array_find_max');
+        this.loadPreset('empty_main');
     }
 
     cacheDom() {
         this.dom.studioModeButtons = document.querySelectorAll('.btn-studio-mode');
         this.dom.presetSelect = document.getElementById('preset-select');
-        this.dom.btnRandom1D = document.getElementById('btn-random-1d');
-        this.dom.btnRandomMat3 = document.getElementById('btn-random-mat3');
-        this.dom.btnRandomMat4 = document.getElementById('btn-random-mat4');
+        this.dom.btnToggleInitCard = document.getElementById('btn-toggle-init-card');
+        this.dom.cardFlexibleInit = document.getElementById('card-flexible-init');
+
+        // פקדי חלונית אתחול גמישה
+        this.dom.btnInitTypes = document.querySelectorAll('.btn-init-type');
+        this.dom.initArrayInput = document.getElementById('init-array-input');
+        this.dom.initArraySize = document.getElementById('init-array-size');
+        this.dom.initArrayMin = document.getElementById('init-array-min');
+        this.dom.initArrayMax = document.getElementById('init-array-max');
+        this.dom.btnInitRandArray = document.getElementById('btn-init-rand-array');
+        this.dom.btnInitApplyArray = document.getElementById('btn-init-apply-array');
+
+        this.dom.initMatRows = document.getElementById('init-mat-rows');
+        this.dom.initMatCols = document.getElementById('init-mat-cols');
+        this.dom.initMatInput = document.getElementById('init-mat-input');
+        this.dom.btnInitRandMat = document.getElementById('btn-init-rand-mat');
+        this.dom.btnInitApplyMat = document.getElementById('btn-init-apply-mat');
+
+        this.dom.initStringInput = document.getElementById('init-string-input');
+        this.dom.btnInitApplyString = document.getElementById('btn-init-apply-string');
+
+        this.dom.initConsoleInputs = document.getElementById('init-console-inputs');
+        this.dom.btnInitApplyConsole = document.getElementById('btn-init-apply-console');
 
         this.dom.editorTabsList = document.getElementById('editor-tabs-list');
         this.dom.btnAddTab = document.getElementById('btn-add-tab');
@@ -72,10 +92,13 @@ class Visualizer10thApp {
         this.dom.traceTbody = document.getElementById('trace-tbody');
         this.dom.btnCopyTrace = document.getElementById('btn-copy-trace');
 
+        // טאבים של בדיקה ממוזערת
+        this.dom.tabBtnsInsp = document.querySelectorAll('.tab-btn-insp');
         this.dom.variablesTbody = document.getElementById('variables-tbody');
         this.dom.callStackList = document.getElementById('call-stack-list');
         this.dom.consoleOutput = document.getElementById('console-output');
         this.dom.btnClearConsole = document.getElementById('btn-clear-console');
+        this.dom.consoleBadge = document.getElementById('console-badge');
 
         this.dom.resizer = document.getElementById('resizer-h');
         this.dom.editorPanel = document.getElementById('editor-panel');
@@ -100,10 +123,156 @@ class Visualizer10thApp {
             }
         });
 
-        // סרגל אתחול מהיר
-        this.dom.btnRandom1D.addEventListener('click', () => this.generateRandom1DArray());
-        this.dom.btnRandomMat3.addEventListener('click', () => this.generateRandomMatrix(3, 3));
-        this.dom.btnRandomMat4.addEventListener('click', () => this.generateRandomMatrix(4, 4));
+        // כפתור פתיחה/סגירה של חלונית אתחול נתונים
+        if (this.dom.btnToggleInitCard && this.dom.cardFlexibleInit) {
+            this.dom.btnToggleInitCard.addEventListener('click', () => {
+                this.dom.cardFlexibleInit.classList.toggle('collapsed');
+                const toggleBtn = this.dom.cardFlexibleInit.querySelector('.btn-card-toggle');
+                if (toggleBtn) {
+                    toggleBtn.textContent = this.dom.cardFlexibleInit.classList.contains('collapsed') ? '➕' : '➖';
+                }
+                if (!this.dom.cardFlexibleInit.classList.contains('collapsed')) {
+                    this.dom.cardFlexibleInit.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
+        }
+
+        // כפתורי מזעור/הרחבה לכל הכרטיסיות
+        document.querySelectorAll('.btn-card-toggle').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const card = e.target.closest('.stage-card');
+                if (card) {
+                    card.classList.toggle('collapsed');
+                    btn.textContent = card.classList.contains('collapsed') ? '➕' : '➖';
+                }
+            });
+        });
+
+        // לשוניות סוג אתחול גמיש (מערך, מטריצה, מחרוזת, קונסול)
+        if (this.dom.btnInitTypes) {
+            this.dom.btnInitTypes.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    this.dom.btnInitTypes.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const type = btn.dataset.init;
+                    document.querySelectorAll('.init-panel-pane').forEach(p => p.style.display = 'none');
+                    const pane = document.getElementById(`init-pane-${type}`);
+                    if (pane) pane.style.display = '';
+                });
+            });
+        }
+
+        // פעולות אתחול נתונים גמיש
+        if (this.dom.btnInitRandArray) {
+            this.dom.btnInitRandArray.addEventListener('click', () => {
+                const size = parseInt(this.dom.initArraySize.value, 10) || 6;
+                const min = parseInt(this.dom.initArrayMin.value, 10) || 10;
+                const max = parseInt(this.dom.initArrayMax.value, 10) || 99;
+                const vals = [];
+                for (let i = 0; i < size; i++) {
+                    vals.push(Math.floor(Math.random() * (max - min + 1)) + min);
+                }
+                this.dom.initArrayInput.value = vals.join(', ');
+            });
+        }
+
+        if (this.dom.btnInitApplyArray) {
+            this.dom.btnInitApplyArray.addEventListener('click', () => {
+                const raw = this.dom.initArrayInput.value.trim();
+                const snippet = `int[] arr = { ${raw} };`;
+                const code = this.editorFiles['Program.cs'].code;
+                if (code.includes('int[] arr =')) {
+                    this.editorFiles['Program.cs'].code = code.replace(/int\[\]\s*arr\s*=\s*\{[^}]*\};/, snippet);
+                } else {
+                    this.editorFiles['Program.cs'].code = code.replace(/public\s+static\s+void\s+Main\s*\([^)]*\)\s*\{/, `public static void Main()\n    {\n        ${snippet}`);
+                }
+                if (this.activeFileName === 'Program.cs') {
+                    this.dom.codeTextarea.value = this.editorFiles['Program.cs'].code;
+                    this.updateLineNumbers();
+                }
+                this.recompile();
+            });
+        }
+
+        if (this.dom.btnInitRandMat) {
+            this.dom.btnInitRandMat.addEventListener('click', () => {
+                const rows = parseInt(this.dom.initMatRows.value, 10) || 3;
+                const cols = parseInt(this.dom.initMatCols.value, 10) || 3;
+                const lines = [];
+                for (let r = 0; r < rows; r++) {
+                    const vals = [];
+                    for (let c = 0; c < cols; c++) {
+                        vals.push(Math.floor(Math.random() * 20) + 1);
+                    }
+                    lines.push(vals.join(', '));
+                }
+                this.dom.initMatInput.value = lines.join('\n');
+            });
+        }
+
+        if (this.dom.btnInitApplyMat) {
+            this.dom.btnInitApplyMat.addEventListener('click', () => {
+                const text = this.dom.initMatInput.value.trim();
+                const rowLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                const rowsFormatted = rowLines.map(line => `        { ${line} }`).join(',\n');
+                const snippet = `int[,] mat = {\n${rowsFormatted}\n    };`;
+
+                const code = this.editorFiles['Program.cs'].code;
+                if (code.includes('int[,] mat =')) {
+                    this.editorFiles['Program.cs'].code = code.replace(/int\[,\]\s*mat\s*=\s*\{[\s\S]*?\};/, snippet);
+                } else {
+                    this.editorFiles['Program.cs'].code = code.replace(/public\s+static\s+void\s+Main\s*\([^)]*\)\s*\{/, `public static void Main()\n    {\n        ${snippet}`);
+                }
+                if (this.activeFileName === 'Program.cs') {
+                    this.dom.codeTextarea.value = this.editorFiles['Program.cs'].code;
+                    this.updateLineNumbers();
+                }
+                this.recompile();
+            });
+        }
+
+        if (this.dom.btnInitApplyString) {
+            this.dom.btnInitApplyString.addEventListener('click', () => {
+                const word = this.dom.initStringInput.value.trim();
+                const snippet = `string word = "${word}";`;
+                const code = this.editorFiles['Program.cs'].code;
+                if (/string\s+(word|str|text)\s*=\s*"[^"]*";/.test(code)) {
+                    this.editorFiles['Program.cs'].code = code.replace(/string\s+(word|str|text)\s*=\s*"[^"]*";/, snippet);
+                } else {
+                    this.editorFiles['Program.cs'].code = code.replace(/public\s+static\s+void\s+Main\s*\([^)]*\)\s*\{/, `public static void Main()\n    {\n        ${snippet}`);
+                }
+                if (this.activeFileName === 'Program.cs') {
+                    this.dom.codeTextarea.value = this.editorFiles['Program.cs'].code;
+                    this.updateLineNumbers();
+                }
+                this.recompile();
+            });
+        }
+
+        if (this.dom.btnInitApplyConsole) {
+            this.dom.btnInitApplyConsole.addEventListener('click', () => {
+                const inputs = this.dom.initConsoleInputs.value.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+                this.interpreter.setInputQueue(inputs);
+                this.recompile();
+            });
+        }
+
+        // לשוניות בדיקה ממוזערות (משתנים, מחסנית, פלט)
+        if (this.dom.tabBtnsInsp) {
+            this.dom.tabBtnsInsp.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    this.dom.tabBtnsInsp.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const tab = btn.dataset.tab;
+                    document.querySelectorAll('.insp-pane').forEach(p => p.style.display = 'none');
+                    const activePane = document.getElementById(`pane-${tab}`);
+                    if (activePane) activePane.style.display = '';
+                    if (this.dom.btnClearConsole) {
+                        this.dom.btnClearConsole.style.display = (tab === 'console') ? '' : 'none';
+                    }
+                });
+            });
+        }
 
         // כפתור הוספת מחלקה חדשה
         this.dom.btnAddTab.addEventListener('click', () => this.promptAddClass());
@@ -159,7 +328,8 @@ class Visualizer10thApp {
         document.addEventListener('mousemove', (e) => {
             if (!isResizing) return;
             const containerWidth = document.querySelector('.main-layout').offsetWidth;
-            const newEditorWidth = Math.max(300, Math.min(containerWidth - 350, e.clientX));
+            // מכיוון שהעורך נמצא משמאל, e.clientX קובע ישירות את רוחבו
+            const newEditorWidth = Math.max(280, Math.min(containerWidth - 320, e.clientX));
             const percentage = (newEditorWidth / containerWidth) * 100;
             this.dom.editorPanel.style.flex = `0 0 ${percentage}%`;
         });
