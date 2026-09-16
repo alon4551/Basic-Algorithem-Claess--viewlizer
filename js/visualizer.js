@@ -12,6 +12,9 @@ class Visualizer10thApp {
         this.playTimer = null;
         this.speedMs = 700;
         this.studioMode = 'all';
+        this.memFilter = 'all';
+        this.selectedTraceVars = new Set();
+        this.allTraceVars = [];
 
         // ניהול קבצים בלשוניות (Class Tabs)
         this.editorFiles = {
@@ -30,6 +33,7 @@ class Visualizer10thApp {
         this.setupAutocomplete();
         this.renderTabs();
         this.setupResizer();
+        this.setupCardResizers();
         this.loadPreset('empty_main');
     }
 
@@ -78,27 +82,68 @@ class Visualizer10thApp {
         this.dom.statusIcon = document.getElementById('status-icon');
         this.dom.statusText = document.getElementById('status-text');
 
-        this.dom.arrayCard = document.getElementById('card-arrays');
+        // במת הזיכרון הדינמית האחודה ולשוניות ראשיות
+        this.dom.cardMainStage = document.getElementById('card-main-stage');
+        this.dom.tabBtnMemoryView = document.getElementById('tab-btn-memory-view');
+        this.dom.tabBtnTraceView = document.getElementById('tab-btn-trace-view');
+        this.dom.tabBtnsMain = document.querySelectorAll('.tab-btn-main');
+        this.dom.paneMemoryView = document.getElementById('pane-memory-view');
+        this.dom.paneTraceView = document.getElementById('pane-trace-view');
+        this.dom.btnMemFilters = document.querySelectorAll('.btn-mem-filter');
+
+        this.dom.btnOpenSetup = document.getElementById('btn-open-setup');
+        this.dom.btnCloseInitCard = document.getElementById('btn-close-init-card');
+
+        this.dom.dynamicMemoryStage = document.getElementById('dynamic-memory-stage');
+        this.dom.cardEmptyState = document.getElementById('card-empty-state');
+
+        // כרטיסי במת זיכרון חיים ותגיות כמות
+        this.dom.cardArrays = document.getElementById('card-arrays');
+        this.dom.arraysCountBadge = document.getElementById('arrays-count-badge');
         this.dom.arrayContainer = document.getElementById('array-container');
-        this.dom.matrixCard = document.getElementById('card-matrices');
+
+        this.dom.cardMatrices = document.getElementById('card-matrices');
+        this.dom.matricesCountBadge = document.getElementById('matrices-count-badge');
         this.dom.matrixContainer = document.getElementById('matrix-container');
-        this.dom.stringCard = document.getElementById('card-strings');
+
+        this.dom.cardStrings = document.getElementById('card-strings');
+        this.dom.stringsCountBadge = document.getElementById('strings-count-badge');
         this.dom.stringContainer = document.getElementById('string-container');
-        this.dom.heapCard = document.getElementById('card-heap');
+
+        this.dom.cardHeap = document.getElementById('card-heap');
+        this.dom.heapCountBadge = document.getElementById('heap-count-badge');
         this.dom.heapContainer = document.getElementById('heap-container');
 
+        this.dom.cardVariables = document.getElementById('card-variables');
+        this.dom.varsCountBadge = document.getElementById('vars-count-badge');
+        this.dom.variablesChipsGrid = document.getElementById('variables-chips-grid');
+        this.dom.variablesTable = document.getElementById('variables-table');
+        this.dom.variablesTbody = document.getElementById('variables-tbody');
+
+        this.dom.cardCallstack = document.getElementById('card-callstack');
+        this.dom.stackCountBadge = document.getElementById('stack-count-badge');
+        this.dom.callStackList = document.getElementById('call-stack-list');
+
+        this.dom.cardConsole = document.getElementById('card-console');
+        this.dom.consoleCountBadge = document.getElementById('console-count-badge');
+        this.dom.consoleOutput = document.getElementById('console-output');
+        this.dom.btnClearConsole = document.getElementById('btn-clear-console');
+
+        // תאימות לאחור
+        this.dom.arrayCard = this.dom.cardArrays;
+        this.dom.matrixCard = this.dom.cardMatrices;
+        this.dom.stringCard = this.dom.cardStrings;
+        this.dom.heapCard = this.dom.cardHeap;
+
+        // טבלת מעקב ובחירת משתנים
         this.dom.traceTable = document.getElementById('trace-table');
         this.dom.traceThead = document.getElementById('trace-thead');
         this.dom.traceTbody = document.getElementById('trace-tbody');
+        this.dom.traceStepCount = document.getElementById('trace-step-count');
+        this.dom.traceVarChipsList = document.getElementById('trace-var-chips-list');
+        this.dom.btnTraceSelectAll = document.getElementById('btn-trace-select-all');
+        this.dom.btnTraceDeselectAll = document.getElementById('btn-trace-deselect-all');
         this.dom.btnCopyTrace = document.getElementById('btn-copy-trace');
-
-        // טאבים של בדיקה ממוזערת
-        this.dom.tabBtnsInsp = document.querySelectorAll('.tab-btn-insp');
-        this.dom.variablesTbody = document.getElementById('variables-tbody');
-        this.dom.callStackList = document.getElementById('call-stack-list');
-        this.dom.consoleOutput = document.getElementById('console-output');
-        this.dom.btnClearConsole = document.getElementById('btn-clear-console');
-        this.dom.consoleBadge = document.getElementById('console-badge');
 
         this.dom.resizer = document.getElementById('resizer-h');
         this.dom.editorPanel = document.getElementById('editor-panel');
@@ -123,25 +168,36 @@ class Visualizer10thApp {
             }
         });
 
-        // כפתור פתיחה/סגירה של חלונית אתחול נתונים
-        if (this.dom.btnToggleInitCard && this.dom.cardFlexibleInit) {
-            this.dom.btnToggleInitCard.addEventListener('click', () => {
-                this.dom.cardFlexibleInit.classList.toggle('collapsed');
-                const toggleBtn = this.dom.cardFlexibleInit.querySelector('.btn-card-toggle');
-                if (toggleBtn) {
-                    toggleBtn.textContent = this.dom.cardFlexibleInit.classList.contains('collapsed') ? '➕' : '➖';
-                }
-                if (!this.dom.cardFlexibleInit.classList.contains('collapsed')) {
+        // כפתור פתיחה/סגירה של חלונית אתחול נתונים (Setup Drawer)
+        if (this.dom.btnOpenSetup && this.dom.cardFlexibleInit) {
+            this.dom.btnOpenSetup.addEventListener('click', () => {
+                const isHidden = this.dom.cardFlexibleInit.style.display === 'none';
+                this.dom.cardFlexibleInit.style.display = isHidden ? '' : 'none';
+                this.dom.btnOpenSetup.classList.toggle('active', isHidden);
+                if (isHidden) {
                     this.dom.cardFlexibleInit.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             });
         }
+        if (this.dom.btnCloseInitCard && this.dom.cardFlexibleInit) {
+            this.dom.btnCloseInitCard.addEventListener('click', () => {
+                this.dom.cardFlexibleInit.style.display = 'none';
+                if (this.dom.btnOpenSetup) this.dom.btnOpenSetup.classList.remove('active');
+            });
+        }
+        if (this.dom.btnToggleInitCard && this.dom.cardFlexibleInit) {
+            this.dom.btnToggleInitCard.addEventListener('click', () => {
+                const isHidden = this.dom.cardFlexibleInit.style.display === 'none';
+                this.dom.cardFlexibleInit.style.display = isHidden ? '' : 'none';
+                if (this.dom.btnOpenSetup) this.dom.btnOpenSetup.classList.toggle('active', isHidden);
+            });
+        }
 
-        // כפתורי מזעור/הרחבה לכל הכרטיסיות
+        // כפתורי מזעור/הרחבה לכל הכרטיסיות (.view-card ו-.stage-card)
         document.querySelectorAll('.btn-card-toggle').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const card = e.target.closest('.stage-card');
-                if (card) {
+                const card = e.target.closest('.view-card') || e.target.closest('.stage-card');
+                if (card && btn.id !== 'btn-close-init-card') {
                     card.classList.toggle('collapsed');
                     btn.textContent = card.classList.contains('collapsed') ? '➕' : '➖';
                 }
@@ -257,6 +313,49 @@ class Visualizer10thApp {
             });
         }
 
+        // מעבר בין לשוניות הבמה הראשית (במת זיכרון מול טבלת מעקב)
+        if (this.dom.tabBtnsMain) {
+            this.dom.tabBtnsMain.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    this.dom.tabBtnsMain.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const view = btn.dataset.view;
+                    if (this.dom.paneMemoryView) this.dom.paneMemoryView.style.display = (view === 'memory') ? '' : 'none';
+                    if (this.dom.paneTraceView) this.dom.paneTraceView.style.display = (view === 'trace') ? '' : 'none';
+                });
+            });
+        }
+
+        // כפתורי סינון מהיר בתוך במת הזיכרון
+        if (this.dom.btnMemFilters) {
+            this.dom.btnMemFilters.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    this.dom.btnMemFilters.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    this.memFilter = btn.dataset.filter || 'all';
+                    this.applyMemFilter();
+                });
+            });
+        }
+
+        // כפתורי סמן הכל / בטל הכל עבור עמודות טבלת מעקב
+        if (this.dom.btnTraceSelectAll) {
+            this.dom.btnTraceSelectAll.addEventListener('click', () => {
+                if (this.allTraceVars) {
+                    this.selectedTraceVars = new Set(this.allTraceVars);
+                    this.updateTraceChipsCheckedState();
+                    this.renderTraceTable();
+                }
+            });
+        }
+        if (this.dom.btnTraceDeselectAll) {
+            this.dom.btnTraceDeselectAll.addEventListener('click', () => {
+                this.selectedTraceVars.clear();
+                this.updateTraceChipsCheckedState();
+                this.renderTraceTable();
+            });
+        }
+
         // לשוניות בדיקה ממוזערות (משתנים, מחסנית, פלט)
         if (this.dom.tabBtnsInsp) {
             this.dom.tabBtnsInsp.forEach(btn => {
@@ -318,29 +417,180 @@ class Visualizer10thApp {
 
     setupResizer() {
         let isResizing = false;
-        this.dom.resizer.addEventListener('mousedown', (e) => {
+
+        // שחזור רוחב מועדף מ-localStorage אם קיים
+        try {
+            const savedRatio = localStorage.getItem('agy_10th_editor_width_ratio');
+            if (savedRatio) {
+                const ratio = parseFloat(savedRatio);
+                if (!isNaN(ratio) && ratio >= 20 && ratio <= 80) {
+                    this.dom.editorPanel.style.flex = `0 0 ${ratio}%`;
+                }
+            }
+        } catch (e) {}
+
+        const onStart = () => {
             isResizing = true;
             this.dom.resizer.classList.add('resizing');
             document.body.style.cursor = 'col-resize';
             document.body.style.userSelect = 'none';
-        });
+        };
 
-        document.addEventListener('mousemove', (e) => {
+        const onMove = (clientX) => {
             if (!isResizing) return;
             const containerWidth = document.querySelector('.main-layout').offsetWidth;
-            // מכיוון שהעורך נמצא משמאל, e.clientX קובע ישירות את רוחבו
-            const newEditorWidth = Math.max(280, Math.min(containerWidth - 320, e.clientX));
+            const newEditorWidth = Math.max(260, Math.min(containerWidth - 280, clientX));
             const percentage = (newEditorWidth / containerWidth) * 100;
             this.dom.editorPanel.style.flex = `0 0 ${percentage}%`;
-        });
+            try {
+                localStorage.setItem('agy_10th_editor_width_ratio', percentage.toFixed(2));
+            } catch (e) {}
+        };
 
-        document.addEventListener('mouseup', () => {
+        const onEnd = () => {
             if (isResizing) {
                 isResizing = false;
                 this.dom.resizer.classList.remove('resizing');
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
             }
+        };
+
+        this.dom.resizer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            onStart();
+        });
+
+        this.dom.resizer.addEventListener('touchstart', () => {
+            onStart();
+        }, { passive: true });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isResizing) onMove(e.clientX);
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (isResizing && e.touches.length === 1) {
+                onMove(e.touches[0].clientX);
+            }
+        }, { passive: true });
+
+        document.addEventListener('mouseup', onEnd);
+        document.addEventListener('touchend', onEnd);
+
+        // לחיצה כפולה לאיפוס חלוקה שווה (50%-50%)
+        this.dom.resizer.addEventListener('dblclick', () => {
+            this.dom.editorPanel.style.flex = '0 0 50%';
+            try {
+                localStorage.setItem('agy_10th_editor_width_ratio', '50');
+            } catch (e) {}
+        });
+    }
+
+    setupCardResizers() {
+        // 1. טיפול במתיחה ידנית (Drag-to-resize) עבור כל הכרטיסים והחלוניות
+        document.querySelectorAll('.card-resize-handle').forEach(handle => {
+            let isDragging = false;
+            let startY = 0;
+            let startHeight = 0;
+            let target = null;
+
+            const onStart = (clientY) => {
+                const card = handle.closest('.view-card') || handle.closest('.stage-card') || handle.closest('.main-view-pane');
+                if (card) {
+                    if (handle.classList.contains('trace-resize-handle')) {
+                        target = card.querySelector('.trace-table-wrapper');
+                    } else if (handle.classList.contains('drawer-resize-handle')) {
+                        target = card.querySelector('#flexible-init-body');
+                    } else if (card.id === 'card-console') {
+                        target = card.querySelector('.console-box');
+                    } else {
+                        target = card.querySelector('.view-card-body') || card.querySelector('.card-body');
+                    }
+                }
+
+                if (!target) return;
+                isDragging = true;
+                startY = clientY;
+                startHeight = target.offsetHeight;
+                handle.classList.add('resizing');
+                document.body.style.cursor = 'row-resize';
+                document.body.style.userSelect = 'none';
+            };
+
+            const onMove = (clientY) => {
+                if (!isDragging || !target) return;
+                const diff = clientY - startY;
+                const newHeight = Math.max(65, startHeight + diff);
+                target.style.height = `${newHeight}px`;
+                target.style.maxHeight = 'none'; // ביטול מגבלת גובה קבועה כדי לאפשר מתיחה חופשית
+            };
+
+            const onEnd = () => {
+                if (isDragging) {
+                    isDragging = false;
+                    handle.classList.remove('resizing');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            };
+
+            // עכבר
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                onStart(e.clientY);
+            });
+
+            // מגע (Touch)
+            handle.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    onStart(e.touches[0].clientY);
+                }
+            }, { passive: true });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) onMove(e.clientY);
+            });
+
+            document.addEventListener('touchmove', (e) => {
+                if (isDragging && e.touches.length === 1) {
+                    onMove(e.touches[0].clientY);
+                }
+            }, { passive: true });
+
+            document.addEventListener('mouseup', onEnd);
+            document.addEventListener('touchend', onEnd);
+
+            // לחיצה כפולה לאיפוס גובה לברירת המחדל
+            handle.addEventListener('dblclick', () => {
+                const card = handle.closest('.view-card') || handle.closest('.stage-card') || handle.closest('.main-view-pane');
+                if (card) {
+                    const el = card.querySelector('.trace-table-wrapper') || 
+                               card.querySelector('#flexible-init-body') || 
+                               card.querySelector('.console-box') || 
+                               card.querySelector('.view-card-body') || 
+                               card.querySelector('.card-body');
+                    if (el) {
+                        el.style.height = '';
+                        el.style.maxHeight = '';
+                    }
+                }
+            });
+        });
+
+        // 2. כפתור מקסום/שחזור חלונית (Maximize / Restore)
+        document.querySelectorAll('.btn-card-stretch').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const card = e.target.closest('.view-card');
+                if (card) {
+                    const isMaximized = card.classList.toggle('maximized');
+                    btn.textContent = isMaximized ? '🗗' : '⛶';
+                    btn.title = isMaximized ? 'שחזר גודל חלונית' : 'מקסם חלונית';
+                    if (isMaximized) {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                }
+            });
         });
     }
 
@@ -464,6 +714,8 @@ class Visualizer10thApp {
         if (!this.frames || this.frames.length === 0) {
             this.dom.stepBadge.textContent = '0 / 0';
             this.dom.activeLineHighlight.style.display = 'none';
+            if (this.dom.cardEmptyState) this.dom.cardEmptyState.style.display = '';
+            this.hideAllCards();
             return;
         }
 
@@ -509,10 +761,11 @@ class Visualizer10thApp {
         // קונסול פלט
         this.renderConsole(frame.consoleOutputs);
 
+        // עדכון דינמי של כרטיסים: כרטיס שאין בו מידע מוסתר לחלוטין (תופס 0 מקום!)
+        this.updateCardsVisibility(frame);
+
         // הדגשת שורה בטבלת מעקב
         this.highlightTraceTableRow(idx);
-
-        this.applyStudioModeFilter();
     }
 
     highlightActiveLine(lineNum) {
@@ -534,8 +787,12 @@ class Visualizer10thApp {
     }
 
     render1DArrays(arrays, activePointers) {
+        const count = arrays ? arrays.length : 0;
+        if (this.dom.arraysCountBadge) {
+            this.dom.arraysCountBadge.textContent = `${count} מערכים`;
+        }
         if (!arrays || arrays.length === 0) {
-            this.dom.arrayContainer.innerHTML = '<div class="text-muted" style="padding: 0.5rem; font-size: 0.8rem;">אין כרגע מערכים חד-ממדיים פעילים בזיכרון.</div>';
+            this.dom.arrayContainer.innerHTML = '';
             return;
         }
 
@@ -573,8 +830,12 @@ class Visualizer10thApp {
     }
 
     render2DMatrices(matrices) {
+        const count = matrices ? matrices.length : 0;
+        if (this.dom.matricesCountBadge) {
+            this.dom.matricesCountBadge.textContent = `${count} מטריצות`;
+        }
         if (!matrices || matrices.length === 0) {
-            this.dom.matrixContainer.innerHTML = '<div class="text-muted" style="padding: 0.5rem; font-size: 0.8rem;">אין כרגע מטריצות דו-ממדיות פעילות בזיכרון.</div>';
+            this.dom.matrixContainer.innerHTML = '';
             return;
         }
 
@@ -613,8 +874,12 @@ class Visualizer10thApp {
     }
 
     renderStrings(strings, activePointers) {
+        const count = strings ? strings.length : 0;
+        if (this.dom.stringsCountBadge) {
+            this.dom.stringsCountBadge.textContent = `${count} מחרוזות`;
+        }
         if (!strings || strings.length === 0) {
-            this.dom.stringContainer.innerHTML = '<div class="text-muted" style="padding: 0.5rem; font-size: 0.8rem;">אין כרגע מחרוזות פעילות בזיכרון.</div>';
+            this.dom.stringContainer.innerHTML = '';
             return;
         }
 
@@ -650,8 +915,12 @@ class Visualizer10thApp {
     }
 
     renderHeapObjects(objects) {
+        const count = objects ? objects.length : 0;
+        if (this.dom.heapCountBadge) {
+            this.dom.heapCountBadge.textContent = `${count} עצמים ב-Heap`;
+        }
         if (!objects || objects.length === 0) {
-            this.dom.heapContainer.innerHTML = '<div class="text-muted" style="padding: 0.5rem; font-size: 0.8rem;">אין כרגע מופעי עצמים פעילים ב-Heap.</div>';
+            this.dom.heapContainer.innerHTML = '';
             return;
         }
 
@@ -676,40 +945,94 @@ class Visualizer10thApp {
     }
 
     renderVariables(variables) {
-        if (!variables || Object.keys(variables).length === 0) {
-            this.dom.variablesTbody.innerHTML = '<tr><td colspan="2" class="text-muted">אין משתנים מקומיים</td></tr>';
+        const varKeys = variables ? Object.keys(variables) : [];
+        if (this.dom.varsCountBadge) {
+            this.dom.varsCountBadge.textContent = `${varKeys.length} משתנים`;
+        }
+
+        if (!variables || varKeys.length === 0) {
+            if (this.dom.variablesChipsGrid) {
+                this.dom.variablesChipsGrid.innerHTML = '';
+            }
+            if (this.dom.variablesTbody) {
+                this.dom.variablesTbody.innerHTML = '<tr><td colspan="2" class="text-muted">אין משתנים מקומיים</td></tr>';
+            }
             return;
         }
 
-        let html = '';
+        let chipsHtml = '';
+        let tableHtml = '';
+
         for (const [key, val] of Object.entries(variables)) {
             let displayVal = val;
-            if (Array.isArray(val)) displayVal = `int[${val.length}] { ${val.slice(0, 5).join(', ')}${val.length > 5 ? '...' : ''} }`;
-            else if (val && val._isMatrix) displayVal = `Matrix (${val.rows}x${val.cols})`;
-            else if (val && val._heapId) displayVal = `Ref #${val.className}(#${val._heapId})`;
-            else if (typeof val === 'string') displayVal = `"${val}"`;
+            if (Array.isArray(val)) {
+                displayVal = `[${val.slice(0, 4).join(', ')}${val.length > 4 ? '...' : ''}]`;
+            } else if (val && val._isMatrix) {
+                displayVal = `Matrix[${val.rows},${val.cols}]`;
+            } else if (val && val._heapId) {
+                displayVal = `#${val.className}(#${val._heapId})`;
+            } else if (typeof val === 'string') {
+                displayVal = `"${val}"`;
+            } else if (typeof val === 'boolean') {
+                displayVal = val ? 'true' : 'false';
+            }
 
-            html += `<tr><td><strong>${key}</strong></td><td>${displayVal}</td></tr>`;
+            // זיהוי שינוי ערך לעומת הצעד הקודם
+            const prevVal = this.prevVariables ? this.prevVariables[key] : undefined;
+            const isUpdated = prevVal !== undefined && prevVal !== val;
+
+            chipsHtml += `
+                <div class="var-badge-card ${isUpdated ? 'updated' : ''}">
+                    <span class="var-badge-name">${key}</span>
+                    <span class="var-badge-val" title="${displayVal}">${displayVal}</span>
+                </div>
+            `;
+
+            tableHtml += `<tr><td><strong>${key}</strong></td><td>${displayVal}</td></tr>`;
         }
-        this.dom.variablesTbody.innerHTML = html;
+
+        if (this.dom.variablesChipsGrid) {
+            this.dom.variablesChipsGrid.innerHTML = chipsHtml;
+        }
+        if (this.dom.variablesTbody) {
+            this.dom.variablesTbody.innerHTML = tableHtml;
+        }
+
+        this.prevVariables = { ...variables };
     }
 
     renderCallStack(callStack) {
-        if (!callStack || callStack.length === 0) {
-            this.dom.callStackList.innerHTML = '<li class="text-muted">מחסנית ריקה</li>';
+        const count = callStack ? callStack.length : 0;
+        if (this.dom.stackCountBadge) {
+            this.dom.stackCountBadge.textContent = `${count} מסגרות`;
+        }
+        if (!this.dom.callStackList) return;
+        if (!callStack || count === 0) {
+            this.dom.callStackList.innerHTML = '<li class="text-muted" style="padding: 0.25rem 0; font-size: 0.8rem;">מחסנית ריקה</li>';
             return;
         }
 
         let html = '';
         for (let i = callStack.length - 1; i >= 0; i--) {
             const frame = callStack[i];
-            html += `<li style="padding: 0.25rem 0; direction: ltr; font-family: Consolas, monospace;">${frame.funcName}() <span style="color: #64748b;">(שורה ${frame.line})</span></li>`;
+            const isTop = (i === callStack.length - 1);
+            html += `
+                <li class="call-stack-item ${isTop ? 'top-frame' : ''}">
+                    <span><strong>${frame.funcName}()</strong></span>
+                    <span style="color: var(--text-muted); font-size: 0.75rem;">שורה ${frame.line || '-'}</span>
+                </li>
+            `;
         }
         this.dom.callStackList.innerHTML = html;
     }
 
     renderConsole(outputs) {
-        if (!outputs || outputs.length === 0) {
+        const count = outputs ? outputs.length : 0;
+        if (this.dom.consoleCountBadge) {
+            this.dom.consoleCountBadge.textContent = `${count} שורות`;
+        }
+        if (!this.dom.consoleOutput) return;
+        if (!outputs || count === 0) {
             this.dom.consoleOutput.textContent = '--- אין פלט עדיין ---';
             return;
         }
@@ -717,11 +1040,16 @@ class Visualizer10thApp {
         this.dom.consoleOutput.scrollTop = this.dom.consoleOutput.scrollHeight;
     }
 
-    renderTraceTable() {
+    renderTraceTable(skipChips = false) {
         if (!this.frames || this.frames.length === 0) {
-            this.dom.traceThead.innerHTML = '';
-            this.dom.traceTbody.innerHTML = '<tr><td colspan="5">הרץ את התוכנית כדי להפיק טבלת מעקב</td></tr>';
+            if (this.dom.traceThead) this.dom.traceThead.innerHTML = '';
+            if (this.dom.traceTbody) this.dom.traceTbody.innerHTML = '<tr><td colspan="5">הרץ את התוכנית כדי להפיק טבלת מעקב</td></tr>';
+            if (this.dom.traceStepCount) this.dom.traceStepCount.textContent = '0 צעדים';
             return;
+        }
+
+        if (this.dom.traceStepCount) {
+            this.dom.traceStepCount.textContent = `${this.frames.length} צעדים`;
         }
 
         // איסוף כל שמות המשתנים הפרימיטיביים המופיעים לאורך הריצה
@@ -735,11 +1063,20 @@ class Visualizer10thApp {
                 }
             }
         }
-        const trackedVars = Array.from(varSet);
+        this.allTraceVars = Array.from(varSet);
+        if (this.selectedTraceVars.size === 0 && this.allTraceVars.length > 0) {
+            this.selectedTraceVars = new Set(this.allTraceVars);
+        }
+
+        if (!skipChips) {
+            this.renderTraceVarChips();
+        }
+
+        const displayedVars = this.allTraceVars.filter(v => this.selectedTraceVars.has(v));
 
         // בניית כותרות הטבלה
         let theadHtml = `<tr><th>צעד</th><th>שורה</th><th>תנאי / בדיקה</th>`;
-        for (const vName of trackedVars) {
+        for (const vName of displayedVars) {
             theadHtml += `<th>${vName}</th>`;
         }
         theadHtml += `<th>פלט לקונסול</th></tr>`;
@@ -759,7 +1096,7 @@ class Visualizer10thApp {
             tbodyHtml += `<td>${f.line || '-'}</td>`;
             tbodyHtml += `<td>${conditionText}</td>`;
 
-            for (const vName of trackedVars) {
+            for (const vName of displayedVars) {
                 const val = (f.variables && f.variables[vName] !== undefined) ? f.variables[vName] : '-';
                 tbodyHtml += `<td>${val}</td>`;
             }
@@ -779,6 +1116,46 @@ class Visualizer10thApp {
                     this.renderFrame(stepIdx);
                 }
             });
+        });
+    }
+
+    renderTraceVarChips() {
+        if (!this.dom.traceVarChipsList) return;
+        let html = '';
+        this.allTraceVars.forEach(vName => {
+            const isChecked = this.selectedTraceVars.has(vName);
+            html += `
+                <label class="var-chip ${isChecked ? 'checked' : ''}">
+                    <input type="checkbox" value="${vName}" ${isChecked ? 'checked' : ''}>
+                    <span>${vName}</span>
+                </label>
+            `;
+        });
+        this.dom.traceVarChipsList.innerHTML = html;
+
+        this.dom.traceVarChipsList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const vName = e.target.value;
+                if (e.target.checked) {
+                    this.selectedTraceVars.add(vName);
+                } else {
+                    this.selectedTraceVars.delete(vName);
+                }
+                this.updateTraceChipsCheckedState();
+                this.renderTraceTable(true);
+            });
+        });
+    }
+
+    updateTraceChipsCheckedState() {
+        if (!this.dom.traceVarChipsList) return;
+        this.dom.traceVarChipsList.querySelectorAll('.var-chip').forEach(chip => {
+            const cb = chip.querySelector('input[type="checkbox"]');
+            if (cb) {
+                const checked = this.selectedTraceVars.has(cb.value);
+                cb.checked = checked;
+                chip.classList.toggle('checked', checked);
+            }
         });
     }
 
@@ -811,38 +1188,81 @@ class Visualizer10thApp {
         });
     }
 
+    updateCardsVisibility(frame) {
+        if (!frame) {
+            this.hideAllCards();
+            if (this.dom.cardEmptyState) this.dom.cardEmptyState.style.display = '';
+            return;
+        }
+
+        const hasArrays = frame.arrays1D && frame.arrays1D.length > 0;
+        const hasMatrices = frame.matrices2D && frame.matrices2D.length > 0;
+        const hasStrings = frame.strings && frame.strings.length > 0;
+        const hasHeap = frame.objects && frame.objects.length > 0;
+        const hasVars = frame.variables && Object.keys(frame.variables).length > 0;
+        const hasCallStack = frame.callStack && (frame.callStack.length > 1 || this.studioMode === 'functions');
+        const hasConsole = frame.consoleOutputs && frame.consoleOutputs.length > 0;
+
+        // סינון לפי סוג סטודיו ולפי בורר סינון מהיר של כרטיסים
+        const showArrays = hasArrays && 
+            (this.memFilter === 'all' || this.memFilter === 'arrays') && 
+            (this.studioMode === 'all' || this.studioMode === 'arrays' || this.studioMode === 'functions');
+
+        const showMatrices = hasMatrices && 
+            (this.memFilter === 'all' || this.memFilter === 'matrices') && 
+            (this.studioMode === 'all' || this.studioMode === 'matrices');
+
+        const showStrings = hasStrings && 
+            (this.memFilter === 'all' || this.memFilter === 'strings') && 
+            (this.studioMode === 'all' || this.studioMode === 'strings');
+
+        const showHeap = hasHeap && 
+            (this.memFilter === 'all' || this.memFilter === 'heap') && 
+            (this.studioMode === 'all' || this.studioMode === 'classes' || this.studioMode === 'oop');
+
+        const showVars = hasVars && 
+            (this.memFilter === 'all' || this.memFilter === 'vars');
+
+        const showCallStack = hasCallStack && 
+            (this.memFilter === 'all' || this.memFilter === 'vars');
+
+        const showConsole = hasConsole;
+
+        // החלת תצוגה: ערך שלא קיים מקבל 'none' ולכן אינו תופס שום מקום
+        if (this.dom.cardArrays) this.dom.cardArrays.style.display = showArrays ? '' : 'none';
+        if (this.dom.cardMatrices) this.dom.cardMatrices.style.display = showMatrices ? '' : 'none';
+        if (this.dom.cardStrings) this.dom.cardStrings.style.display = showStrings ? '' : 'none';
+        if (this.dom.cardHeap) this.dom.cardHeap.style.display = showHeap ? '' : 'none';
+        if (this.dom.cardVariables) this.dom.cardVariables.style.display = showVars ? '' : 'none';
+        if (this.dom.cardCallstack) this.dom.cardCallstack.style.display = showCallStack ? '' : 'none';
+        if (this.dom.cardConsole) this.dom.cardConsole.style.display = showConsole ? '' : 'none';
+
+        // בדיקה האם יש כרטיס גלוי כלשהו - אם אין, מוצג כרטיס מצב ריק ידידותי
+        const anyCardVisible = showArrays || showMatrices || showStrings || showHeap || showVars || showCallStack || showConsole;
+        if (this.dom.cardEmptyState) {
+            this.dom.cardEmptyState.style.display = anyCardVisible ? 'none' : '';
+        }
+    }
+
+    hideAllCards() {
+        if (this.dom.cardArrays) this.dom.cardArrays.style.display = 'none';
+        if (this.dom.cardMatrices) this.dom.cardMatrices.style.display = 'none';
+        if (this.dom.cardStrings) this.dom.cardStrings.style.display = 'none';
+        if (this.dom.cardHeap) this.dom.cardHeap.style.display = 'none';
+        if (this.dom.cardVariables) this.dom.cardVariables.style.display = 'none';
+        if (this.dom.cardCallstack) this.dom.cardCallstack.style.display = 'none';
+        if (this.dom.cardConsole) this.dom.cardConsole.style.display = 'none';
+    }
+
     applyStudioModeFilter() {
-        const mode = this.studioMode;
-        if (mode === 'all') {
-            this.dom.arrayCard.style.display = '';
-            this.dom.matrixCard.style.display = '';
-            this.dom.stringCard.style.display = '';
-            this.dom.heapCard.style.display = '';
-        } else if (mode === 'arrays') {
-            this.dom.arrayCard.style.display = '';
-            this.dom.matrixCard.style.display = 'none';
-            this.dom.stringCard.style.display = 'none';
-            this.dom.heapCard.style.display = 'none';
-        } else if (mode === 'matrices') {
-            this.dom.arrayCard.style.display = 'none';
-            this.dom.matrixCard.style.display = '';
-            this.dom.stringCard.style.display = 'none';
-            this.dom.heapCard.style.display = 'none';
-        } else if (mode === 'strings') {
-            this.dom.arrayCard.style.display = 'none';
-            this.dom.matrixCard.style.display = 'none';
-            this.dom.stringCard.style.display = '';
-            this.dom.heapCard.style.display = 'none';
-        } else if (mode === 'classes') {
-            this.dom.arrayCard.style.display = 'none';
-            this.dom.matrixCard.style.display = 'none';
-            this.dom.stringCard.style.display = 'none';
-            this.dom.heapCard.style.display = '';
-        } else if (mode === 'functions') {
-            this.dom.arrayCard.style.display = '';
-            this.dom.matrixCard.style.display = 'none';
-            this.dom.stringCard.style.display = 'none';
-            this.dom.heapCard.style.display = 'none';
+        if (this.frames && this.frames[this.currentFrameIdx]) {
+            this.updateCardsVisibility(this.frames[this.currentFrameIdx]);
+        }
+    }
+
+    applyMemFilter() {
+        if (this.frames && this.frames[this.currentFrameIdx]) {
+            this.updateCardsVisibility(this.frames[this.currentFrameIdx]);
         }
     }
 

@@ -244,17 +244,38 @@ body {
     direction: rtl; /* ממשק עברית בתוך העורך */
 }
 
-/* פס גרירה ושינוי גודל */
+/* פס גרירה ושינוי גודל בין העורך לבמה (Horizontal Resizer) */
 .resizer-h {
-    width: 6px;
-    background: #e2e8f0;
+    width: 8px;
+    background: #cbd5e1;
     cursor: col-resize;
-    transition: background 0.2s ease;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
     flex-shrink: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.resizer-h::after {
+    content: '';
+    width: 4px;
+    height: 32px;
+    background: #64748b;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+}
+
+.resizer-h:hover::after, .resizer-h.resizing::after {
+    background: #ffffff;
+    height: 48px;
+    width: 5px;
 }
 
 .resizer-h:hover, .resizer-h.resizing {
     background: var(--primary);
+    box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
 }
 
 /* עמודת ההמחשה הויזואלית (מימין) */
@@ -753,10 +774,13 @@ body {
 
 /* טבלת מעקב (Trace Table / Dry Run Table) */
 .trace-table-wrapper {
-    max-height: 240px;
+    min-height: 180px;
+    max-height: 520px;
     overflow: auto;
     border: 1px solid var(--border);
     border-radius: 6px;
+    resize: vertical;
+    transition: border-color 0.15s ease;
 }
 
 .trace-table {
@@ -896,12 +920,14 @@ body {
     font-size: 0.82rem;
     padding: 0.65rem;
     border-radius: 6px;
-    min-height: 75px;
-    max-height: 140px;
+    min-height: 80px;
+    max-height: 520px;
     overflow-y: auto;
     direction: ltr;
     text-align: left;
     white-space: pre-wrap;
+    resize: vertical;
+    transition: border-color 0.15s ease;
 }
 
 /* חלון השלמה אוטומטית (Autocomplete Dropdown) */
@@ -1029,4 +1055,468 @@ body {
     font-family: Consolas, monospace;
     text-align: center;
 }
+
+/* סגנונות במת זיכרון אחודה וטבלת מעקב בלשוניות ראשיות */
+.main-tabs-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.tab-btn-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: #f1f5f9;
+    border: 1px solid var(--border-dark);
+    color: var(--text-muted);
+    padding: 0.35rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tab-btn-main:hover {
+    background: #e2e8f0;
+    color: var(--text-main);
+}
+
+.tab-btn-main.active {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+}
+
+.main-view-pane:not(.active) {
+    display: none !important;
+}
+
+/* סרגל סינון מהיר של במת הזיכרון */
+.memory-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.65rem;
+    border-bottom: 1px dashed var(--border);
+    flex-wrap: wrap;
+}
+
+.filter-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.btn-mem-filter {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-mem-filter:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.btn-mem-filter.active {
+    background: #dbeafe;
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: 700;
+}
+
+/* במת כרטיסים דינמית אחודה (Cards View Stage) */
+.main-stage-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.main-header-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #f8fafc;
+    flex-shrink: 0;
+}
+
+.main-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#btn-open-setup.active {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+}
+
+.badge-count {
+    font-size: 0.72rem;
+    background: #e2e8f0;
+    color: #475569;
+    padding: 0.1rem 0.45rem;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.tab-btn-main.active .badge-count {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+.dynamic-memory-stage {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* עיצוב כרטיס תצוגה דינמי בבמה (View Card) */
+.view-card {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.view-card:hover {
+    border-color: var(--border-dark);
+    box-shadow: var(--shadow-md);
+}
+
+.view-card-header {
+    background: #f8fafc;
+    border-bottom: 1px solid var(--border);
+    padding: 0.45rem 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.84rem;
+    font-weight: 600;
+}
+
+.card-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.card-icon {
+    font-size: 1.05rem;
+}
+
+.card-title {
+    color: #1e293b;
+}
+
+.card-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 12px;
+    background: #e0f2fe;
+    color: #0284c7;
+    border: 1px solid #bae6fd;
+    font-family: Consolas, 'Segoe UI', monospace;
+}
+
+.view-card-body {
+    padding: 0.75rem;
+    overflow: auto;
+    min-height: 60px;
+    transition: height 0.1s ease;
+}
+
+.view-card.collapsed .view-card-body,
+.view-card.collapsed .card-resize-handle {
+    display: none !important;
+}
+
+/* ידית מתיחה ושינוי גובה לכרטיסים (Resize Handle) */
+.card-resize-handle {
+    height: 10px;
+    background: #f8fafc;
+    border-top: 1px solid var(--border);
+    cursor: row-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    border-bottom-left-radius: 7px;
+    border-bottom-right-radius: 7px;
+    flex-shrink: 0;
+}
+
+.card-resize-handle::after {
+    content: '';
+    width: 38px;
+    height: 3px;
+    background: #94a3b8;
+    border-radius: 2px;
+    transition: all 0.15s ease;
+}
+
+.card-resize-handle:hover, .card-resize-handle.resizing {
+    background: #eff6ff;
+    border-top-color: var(--primary);
+}
+
+.card-resize-handle:hover::after, .card-resize-handle.resizing::after {
+    background: var(--primary);
+    width: 56px;
+    height: 4px;
+}
+
+/* כפתור מקסום / שחזור גודל חלונית */
+.btn-card-stretch {
+    background: transparent;
+    border: none;
+    font-size: 0.82rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    line-height: 1;
+}
+
+.btn-card-stretch:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--primary);
+}
+
+.view-card.maximized {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-lg);
+}
+
+.view-card.maximized .view-card-body {
+    max-height: 70vh !important;
+    height: 480px !important;
+    overflow-y: auto !important;
+}
+
+/* כרטיס מצב ריק (Empty State) */
+.empty-card {
+    background: #ffffff;
+    border: 1.5px dashed var(--border-dark);
+    border-radius: 8px;
+    padding: 2.2rem 1.25rem;
+    text-align: center;
+}
+
+.empty-state-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-muted);
+}
+
+.empty-state-icon {
+    font-size: 2.2rem;
+    margin-bottom: 0.25rem;
+}
+
+.empty-state-content h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #334155;
+    margin: 0;
+}
+
+.empty-state-content p {
+    font-size: 0.84rem;
+    max-width: 460px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* רשת משתנים מקומיים ככרטיסים קומפקטיים (Chips Grid) */
+.variables-chips-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 0.55rem;
+}
+
+.var-badge-card {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.65rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    transition: all 0.2s ease;
+}
+
+.var-badge-card.updated {
+    background: #eff6ff;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+    transform: translateY(-1px);
+}
+
+.var-badge-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-family: Consolas, monospace;
+    direction: ltr;
+    text-align: left;
+}
+
+.var-badge-val {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    font-family: Consolas, monospace;
+    direction: ltr;
+    text-align: left;
+    word-break: break-all;
+}
+
+/* רשימת מחסנית קריאות */
+.call-stack-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0;
+    margin: 0;
+}
+
+.call-stack-item {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-right: 4px solid #6366f1;
+    border-radius: 5px;
+    padding: 0.35rem 0.65rem;
+    font-family: Consolas, monospace;
+    font-size: 0.82rem;
+    direction: ltr;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.call-stack-item.top-frame {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    border-right-color: #2563eb;
+    font-weight: 700;
+}
+
+/* חלונית Drawer של אתחול נתונים */
+.init-drawer-card {
+    background: #f0f9ff;
+    border: 1.5px solid #38bdf8;
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
+}
+
+/* סרגל בורר משתנים למעקב */
+.trace-vars-bar {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.65rem;
+    margin-bottom: 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.trace-vars-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.vars-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.vars-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+}
+
+.btn-link-action {
+    background: none;
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: inherit;
+    text-decoration: underline;
+    padding: 0;
+}
+
+.btn-link-action:hover {
+    color: var(--primary-hover);
+}
+
+.trace-var-chips-list {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.var-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: #ffffff;
+    border: 1px solid var(--border-dark);
+    padding: 0.15rem 0.55rem;
+    border-radius: 12px;
+    font-size: 0.76rem;
+    font-family: Consolas, monospace;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s ease;
+}
+
+.var-chip:hover {
+    border-color: var(--primary);
+}
+
+.var-chip input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+.var-chip.checked {
+    background: #eff6ff;
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: 700;
+}
+
 

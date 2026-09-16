@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>סטודיו ומפרש יסודות מדעי המחשב ב-C# | אלון שרייבמן</title>
-    <link rel="stylesheet" href="css/style.css?v=1.2">
+    <link rel="stylesheet" href="css/style.css?v=1.3">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>">
 </head>
 <body>
@@ -137,14 +137,14 @@
         <!-- 2. עמודת במת ההמחשה והמעקב (מימין) -->
         <section class="visual-panel" id="visual-panel">
 
-            <!-- חלונית אתחול נתונים גמישה (Flexible Data Setup & Inputs) -->
-            <div class="stage-card" id="card-flexible-init">
+            <!-- 1. חלונית אתחול נתונים גמישה (Data Setup Drawer - סגורה כברירת מחדל כדי לחסוך מקום) -->
+            <div class="stage-card init-drawer-card" id="card-flexible-init" style="display: none;">
                 <div class="stage-card-header">
                     <div class="card-title-group">
                         <span>⚙️</span>
                         <span>חלונית אתחול נתונים והזנת קלט גמישה (Data Setup)</span>
                     </div>
-                    <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
+                    <button type="button" class="btn-card-toggle" id="btn-close-init-card" title="סגור חלונית אתחול">✕</button>
                 </div>
                 <div class="card-body" id="flexible-init-body">
                     <!-- בורר טיפוס אתחול: מערך, מטריצה, מחרוזת, קלט קונסול -->
@@ -219,132 +219,232 @@
                         </div>
                     </div>
                 </div>
+                <div class="card-resize-handle drawer-resize-handle" title="גרור למעלה/למטה כדי למתוח את חלונית האתחול (לחיצה כפולה לאיפוס)"></div>
             </div>
 
-            <!-- 1. כרטיסיית מערכים חד-ממדיים -->
-            <div class="stage-card" id="card-arrays">
-                <div class="stage-card-header">
-                    <div class="card-title-group">
-                        <span>📊</span>
-                        <span>מערכים חד-ממדיים (1D Arrays &amp; Indices)</span>
-                    </div>
-                    <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
-                </div>
-                <div class="card-body">
-                    <div id="array-container" class="array-container"></div>
-                </div>
-            </div>
-
-            <!-- 2. כרטיסיית מטריצות דו-ממדיות -->
-            <div class="stage-card" id="card-matrices">
-                <div class="stage-card-header">
-                    <div class="card-title-group">
-                        <span>🔲</span>
-                        <span>מטריצות ורשתות דו-ממדיות (2D Matrix Grid)</span>
-                    </div>
-                    <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
-                </div>
-                <div class="card-body">
-                    <div id="matrix-container"></div>
-                </div>
-            </div>
-
-            <!-- 3. כרטיסיית מחרוזות ותווים -->
-            <div class="stage-card" id="card-strings">
-                <div class="stage-card-header">
-                    <div class="card-title-group">
-                        <span>🔤</span>
-                        <span>מחרוזות ותווים (Strings &amp; Chars)</span>
-                    </div>
-                    <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
-                </div>
-                <div class="card-body">
-                    <div id="string-container"></div>
-                </div>
-            </div>
-
-            <!-- 4. כרטיסיית מחלקות ועצמים ב-Heap -->
-            <div class="stage-card" id="card-heap">
-                <div class="stage-card-header">
-                    <div class="card-title-group">
-                        <span>📦</span>
-                        <span>זיכרון ערימה ועצמים (Heap &amp; Objects)</span>
-                    </div>
-                    <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
-                </div>
-                <div class="card-body">
-                    <div id="heap-container"></div>
-                </div>
-            </div>
-
-            <!-- 5. טבלת מעקב (Dry Run / Trace Table) בסטנדרט בגרות -->
-            <div class="stage-card" id="card-trace-table">
-                <div class="stage-card-header">
-                    <div class="card-title-group">
-                        <span>📋</span>
-                        <span>טבלת מעקב (Trace Table / טבלת יובש) — בסטנדרט בגרות</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 0.4rem;">
-                        <button type="button" id="btn-copy-trace" class="btn-quick" title="העתק את טבלת המעקב ללוח עבור עבודות או מבחנים">
+            <!-- 2. חלון התצוגה הראשי האחוד: במת כרטיסים דינמית + טבלת מעקב (Unified View Window) -->
+            <div class="stage-card main-stage-card" id="card-main-stage">
+                <div class="stage-card-header main-header-sticky">
+                    <div class="main-tabs-nav">
+                        <button type="button" class="tab-btn-main active" id="tab-btn-memory-view" data-view="memory" title="תצוגת כרטיסי זיכרון חיים">
+                            <span>🎴</span>
+                            <span>במת כרטיסים (Cards View)</span>
+                        </button>
+                        <button type="button" class="tab-btn-main" id="tab-btn-trace-view" data-view="trace" title="טבלת מעקב הרצה שלמה">
                             <span>📋</span>
-                            <span>העתק טבלה ללוח</span>
+                            <span>טבלת מעקב (Trace Table)</span>
+                            <span class="badge-count" id="trace-step-count">0 צעדים</span>
                         </button>
-                        <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
+                    </div>
+                    <div class="main-header-actions">
+                        <button type="button" id="btn-open-setup" class="btn-quick" title="פתח/סגור חלונית אתחול נתונים">
+                            <span>⚙️</span>
+                            <span>הגדרת קלט</span>
+                        </button>
                     </div>
                 </div>
-                <div class="card-body" style="padding: 0.4rem;">
-                    <div class="trace-table-wrapper">
-                        <table class="trace-table" id="trace-table">
-                            <thead id="trace-thead"></thead>
-                            <tbody id="trace-tbody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
 
-            <!-- 6. כרטיסיית בדיקה ממוזערת עם לשוניות (משתנים, מחסנית, פלט) -->
-            <div class="stage-card" id="card-inspection">
-                <div class="stage-card-header">
-                    <div class="inspection-tabs-nav">
-                        <button type="button" class="tab-btn-insp active" data-tab="vars">
-                            <span>🔍</span>
-                            <span>משתנים (Variables)</span>
-                        </button>
-                        <button type="button" class="tab-btn-insp" data-tab="stack">
-                            <span>🥞</span>
-                            <span>מחסנית קריאות (Stack)</span>
-                        </button>
-                        <button type="button" class="tab-btn-insp" data-tab="console">
-                            <span>💻</span>
-                            <span>פלט קונסול (Terminal)</span>
-                            <span class="badge-count" id="console-badge" style="display: none;">0</span>
-                        </button>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 0.4rem;">
-                        <button type="button" id="btn-clear-console" class="btn-quick" style="display: none;" title="נקה פלט קונסול">נקה פלט</button>
-                        <button type="button" class="btn-card-toggle" title="מזער / הגדל חלונית">➖</button>
-                    </div>
-                </div>
-                <div class="card-body" id="inspection-body">
-                    <!-- טאב משתנים -->
-                    <div class="insp-pane active" id="pane-vars">
-                        <table class="simple-table">
-                            <thead>
-                                <tr><th>משתנה</th><th>ערך נוכחי</th></tr>
-                            </thead>
-                            <tbody id="variables-tbody"></tbody>
-                        </table>
+                <div class="card-body" id="main-stage-body">
+                    
+                    <!-- 2.1 פאנל כרטיסי תצוגה חיים (מערכים, מטריצות, מחרוזות, עצמים, משתנים, פלט) -->
+                    <div class="main-view-pane active" id="pane-memory-view">
+                        <!-- סרגל סינון מהיר לכרטיסים -->
+                        <div class="memory-filter-bar">
+                            <span class="filter-label">סינון כרטיסים:</span>
+                            <button type="button" class="btn-mem-filter active" data-filter="all">הכל</button>
+                            <button type="button" class="btn-mem-filter" data-filter="arrays">📊 מערכים (1D)</button>
+                            <button type="button" class="btn-mem-filter" data-filter="matrices">🔲 מטריצות (2D)</button>
+                            <button type="button" class="btn-mem-filter" data-filter="strings">🔤 מחרוזות</button>
+                            <button type="button" class="btn-mem-filter" data-filter="heap">📦 עצמים ב-Heap</button>
+                            <button type="button" class="btn-mem-filter" data-filter="vars">🔍 משתנים</button>
+                        </div>
+
+                        <!-- מיכל הכרטיסים הדינמי: כרטיס שאין בו מידע לא תופס מקום כלל! -->
+                        <div class="dynamic-memory-stage" id="dynamic-memory-stage">
+                            
+                            <!-- כרטיס מצב ריק (מוצג רק כששום כרטיס אינו פעיל) -->
+                            <div class="view-card empty-card" id="card-empty-state" style="display: none;">
+                                <div class="empty-state-content">
+                                    <span class="empty-state-icon">🌱</span>
+                                    <h3>הזיכרון ריק בצעד זה</h3>
+                                    <p>לחץ על <strong>קדימה</strong> (⏭️) או <strong>נגן</strong> (▶️) כדי להתחיל את ביצוע הפקודות ולצפות בכרטיסי הזיכרון והערכים בזמן אמת.</p>
+                                </div>
+                            </div>
+
+                            <!-- 1. כרטיס מערכים חד-ממדיים -->
+                            <div class="view-card live-card" id="card-arrays" style="display: none;">
+                                <div class="view-card-header">
+                                    <div class="card-title-group">
+                                        <span class="card-icon">📊</span>
+                                        <span class="card-title">מערכים חד-ממדיים (1D Arrays)</span>
+                                        <span class="card-badge" id="arrays-count-badge">0 מערכים</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                        <button type="button" class="btn-card-stretch" title="מקסם / שחזר גודל חלונית">⛶</button>
+                                        <button type="button" class="btn-card-toggle" title="מזער / הרחב חלונית">➖</button>
+                                    </div>
+                                </div>
+                                <div class="view-card-body">
+                                    <div id="array-container" class="array-container"></div>
+                                </div>
+                                <div class="card-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה החלונית (לחיצה כפולה לאיפוס)"></div>
+                            </div>
+
+                            <!-- 2. כרטיס מטריצות דו-ממדיות -->
+                            <div class="view-card live-card" id="card-matrices" style="display: none;">
+                                <div class="view-card-header">
+                                    <div class="card-title-group">
+                                        <span class="card-icon">🔲</span>
+                                        <span class="card-title">מטריצות דו-ממדיות (2D Matrix)</span>
+                                        <span class="card-badge" id="matrices-count-badge">0 מטריצות</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                        <button type="button" class="btn-card-stretch" title="מקסם / שחזר גודל חלונית">⛶</button>
+                                        <button type="button" class="btn-card-toggle" title="מזער / הרחב חלונית">➖</button>
+                                    </div>
+                                </div>
+                                <div class="view-card-body">
+                                    <div id="matrix-container"></div>
+                                </div>
+                                <div class="card-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה החלונית (לחיצה כפולה לאיפוס)"></div>
+                            </div>
+
+                            <!-- 3. כרטיס מחרוזות ותווים -->
+                            <div class="view-card live-card" id="card-strings" style="display: none;">
+                                <div class="view-card-header">
+                                    <div class="card-title-group">
+                                        <span class="card-icon">🔤</span>
+                                        <span class="card-title">מחרוזות ותווים (Strings &amp; Chars)</span>
+                                        <span class="card-badge" id="strings-count-badge">0 מחרוזות</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                        <button type="button" class="btn-card-stretch" title="מקסם / שחזר גודל חלונית">⛶</button>
+                                        <button type="button" class="btn-card-toggle" title="מזער / הרחב חלונית">➖</button>
+                                    </div>
+                                </div>
+                                <div class="view-card-body">
+                                    <div id="string-container"></div>
+                                </div>
+                                <div class="card-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה החלונית (לחיצה כפולה לאיפוס)"></div>
+                            </div>
+
+                            <!-- 4. כרטיס עצמים ב-Heap -->
+                            <div class="view-card live-card" id="card-heap" style="display: none;">
+                                <div class="view-card-header">
+                                    <div class="card-title-group">
+                                        <span class="card-icon">📦</span>
+                                        <span class="card-title">עצמים ומופעים ב-Heap</span>
+                                        <span class="card-badge" id="heap-count-badge">0 עצמים</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                        <button type="button" class="btn-card-stretch" title="מקסם / שחזר גודל חלונית">⛶</button>
+                                        <button type="button" class="btn-card-toggle" title="מזער / הרחב חלונית">➖</button>
+                                    </div>
+                                </div>
+                                <div class="view-card-body">
+                                    <div id="heap-container"></div>
+                                </div>
+                                <div class="card-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה החלונית (לחיצה כפולה לאיפוס)"></div>
+                            </div>
+
+                            <!-- 5. כרטיס משתנים מקומיים -->
+                            <div class="view-card live-card" id="card-variables" style="display: none;">
+                                <div class="view-card-header">
+                                    <div class="card-title-group">
+                                        <span class="card-icon">🔍</span>
+                                        <span class="card-title">משתנים מקומיים (Local Variables)</span>
+                                        <span class="card-badge" id="vars-count-badge">0 משתנים</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                        <button type="button" class="btn-card-stretch" title="מקסם / שחזר גודל חלונית">⛶</button>
+                                        <button type="button" class="btn-card-toggle" title="מזער / הרחב חלונית">➖</button>
+                                    </div>
+                                </div>
+                                <div class="view-card-body">
+                                    <div class="variables-chips-grid" id="variables-chips-grid"></div>
+                                    <table class="simple-table" id="variables-table" style="display: none;">
+                                        <thead>
+                                             <tr><th>משתנה</th><th>ערך נוכחי</th></tr>
+                                        </thead>
+                                        <tbody id="variables-tbody"></tbody>
+                                    </table>
+                                </div>
+                                <div class="card-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה החלונית (לחיצה כפולה לאיפוס)"></div>
+                            </div>
+
+                            <!-- 6. כרטיס מחסנית קריאות -->
+                            <div class="view-card live-card" id="card-callstack" style="display: none;">
+                                <div class="view-card-header">
+                                    <div class="card-title-group">
+                                        <span class="card-icon">🥞</span>
+                                        <span class="card-title">מחסנית קריאות (Call Stack)</span>
+                                        <span class="card-badge" id="stack-count-badge">0</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                        <button type="button" class="btn-card-stretch" title="מקסם / שחזר גודל חלונית">⛶</button>
+                                        <button type="button" class="btn-card-toggle" title="מזער / הרחב חלונית">➖</button>
+                                    </div>
+                                </div>
+                                <div class="view-card-body">
+                                    <ul id="call-stack-list" class="call-stack-list"></ul>
+                                </div>
+                                <div class="card-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה החלונית (לחיצה כפולה לאיפוס)"></div>
+                            </div>
+
+                            <!-- 7. כרטיס פלט מסוף (Terminal Console) -->
+                            <div class="view-card live-card" id="card-console" style="display: none;">
+                                <div class="view-card-header">
+                                    <div class="card-title-group">
+                                        <span class="card-icon">💻</span>
+                                        <span class="card-title">פלט מסוף (Terminal Console)</span>
+                                        <span class="card-badge" id="console-count-badge">0 שורות</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                        <button type="button" id="btn-clear-console" class="btn-quick" style="padding: 0.15rem 0.5rem; font-size: 0.72rem;" title="נקה פלט">נקה</button>
+                                        <button type="button" class="btn-card-stretch" title="מקסם / שחזר גודל חלונית">⛶</button>
+                                        <button type="button" class="btn-card-toggle" title="מזער / הרחב חלונית">➖</button>
+                                    </div>
+                                </div>
+                                <div class="view-card-body" style="padding: 0.5rem;">
+                                    <div class="console-box" id="console-output"></div>
+                                </div>
+                                <div class="card-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה המסוף (לחיצה כפולה לאיפוס)"></div>
+                            </div>
+
+                        </div>
                     </div>
 
-                    <!-- טאב מחסנית קריאות -->
-                    <div class="insp-pane" id="pane-stack" style="display: none;">
-                        <ul id="call-stack-list" style="list-style: none; padding: 0;"></ul>
+                    <!-- 2.2 פאנל טבלת מעקב -->
+                    <div class="main-view-pane" id="pane-trace-view" style="display: none;">
+                        
+                        <!-- סרגל בחירת משתנים למעקב -->
+                        <div class="trace-vars-bar">
+                            <div class="trace-vars-header">
+                                <span class="vars-title">🎯 בחר אילו משתנים להציג / למזער בטבלה:</span>
+                                <div class="vars-actions">
+                                    <button type="button" id="btn-trace-select-all" class="btn-link-action">סמן הכל</button>
+                                    <span>|</span>
+                                    <button type="button" id="btn-trace-deselect-all" class="btn-link-action">בטל הכל</button>
+                                    <button type="button" id="btn-copy-trace" class="btn-quick" style="margin-right: 0.5rem;" title="העתק טבלה ללוח">
+                                        <span>📋</span> העתק ללוח
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="trace-var-chips-list" id="trace-var-chips-list">
+                                <!-- צ'יפים של משתנים ייטענו כאן דינמית -->
+                            </div>
+                        </div>
+
+                        <!-- טבלת המעקב -->
+                        <div class="trace-table-wrapper" style="max-height: 380px;">
+                            <table class="trace-table" id="trace-table">
+                                <thead id="trace-thead"></thead>
+                                <tbody id="trace-tbody"></tbody>
+                            </table>
+                        </div>
+                        <div class="card-resize-handle trace-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה טבלת המעקב (לחיצה כפולה לאיפוס)"></div>
                     </div>
 
-                    <!-- טאב פלט קונסול -->
-                    <div class="insp-pane" id="pane-console" style="display: none;">
-                        <div class="console-box" id="console-output"></div>
-                    </div>
                 </div>
             </div>
 
