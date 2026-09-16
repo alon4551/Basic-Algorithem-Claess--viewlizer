@@ -230,6 +230,39 @@ const PRESETS_10TH = {
     }
 }`
         }
+    },
+
+    'counting_array': {
+        id: 'counting_array',
+        title: '6. מערך מונים: ספירת קולות מועמדים (אינדקס מקונן)',
+        category: 'arrays',
+        categoryName: 'מערכים (1D)',
+        description: 'שימוש בערכי מערך כאינדקס במערך אחר: קריאת פתקי הצבעה (1 עד 4) ועדכון מונה המועמד המתאים בעזרת candidate[votes[i] - 1]++.',
+        files: {
+            'Program.cs': `public class Program
+{
+    public static void Main()
+    {
+        // פתקי הצבעה (מספרי מועמדים בין 1 ל-4)
+        int[] votes = { 2, 1, 3, 2, 1, 4, 2 };
+        
+        // מערך מונים ל-4 מועמדים (אינדקס 0 למועמד 1, אינדקס 1 למועמד 2 וכו')
+        int[] candidate = new int[4];
+        
+        // עדכון המונים בעזרת גישה מקוננת: ערך הפתק הופך לאינדקס
+        for (int i = 0; i < votes.Length; i++)
+        {
+            candidate[votes[i] - 1]++;
+        }
+        
+        // הדפסת תוצאות ההצבעה
+        for (int c = 0; c < candidate.Length; c++)
+        {
+            Console.WriteLine("מועמד " + (c + 1) + ": " + candidate[c] + " קולות");
+        }
+    }
+}`
+        }
     }
 };
 

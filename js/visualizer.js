@@ -466,7 +466,13 @@ class Visualizer10thApp {
         }, { passive: true });
 
         document.addEventListener('mousemove', (e) => {
-            if (isResizing) onMove(e.clientX);
+            if (isResizing) {
+                if (e.buttons === 0) {
+                    onEnd();
+                    return;
+                }
+                onMove(e.clientX);
+            }
         });
 
         document.addEventListener('touchmove', (e) => {
@@ -521,9 +527,11 @@ class Visualizer10thApp {
             const onMove = (clientY) => {
                 if (!isDragging || !target) return;
                 const diff = clientY - startY;
-                const newHeight = Math.max(65, startHeight + diff);
+                const winH = window.innerHeight || 800;
+                const maxHeight = Math.max(160, winH - 220);
+                const newHeight = Math.max(65, Math.min(maxHeight, startHeight + diff));
                 target.style.height = `${newHeight}px`;
-                target.style.maxHeight = 'none'; // ביטול מגבלת גובה קבועה כדי לאפשר מתיחה חופשית
+                target.style.maxHeight = `${maxHeight}px`;
             };
 
             const onEnd = () => {
@@ -537,6 +545,7 @@ class Visualizer10thApp {
 
             // עכבר
             handle.addEventListener('mousedown', (e) => {
+                if (e.button && e.button !== 0) return;
                 e.preventDefault();
                 onStart(e.clientY);
             });
@@ -549,7 +558,13 @@ class Visualizer10thApp {
             }, { passive: true });
 
             document.addEventListener('mousemove', (e) => {
-                if (isDragging) onMove(e.clientY);
+                if (isDragging) {
+                    if (e.buttons === 0) {
+                        onEnd();
+                        return;
+                    }
+                    onMove(e.clientY);
+                }
             });
 
             document.addEventListener('touchmove', (e) => {
