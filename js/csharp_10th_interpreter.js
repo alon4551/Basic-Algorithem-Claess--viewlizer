@@ -29,14 +29,14 @@ class CSharp10thInterpreter {
         }
     }
 
-    run(sourceCode, initialInputs = []) {
+    run(sourceCode, initialInputs = [], customWatchExpressions = []) {
         this.setInputQueue(initialInputs);
         let runtime = null;
         try {
             const preprocessed = this.preprocess(sourceCode);
             const ast = this.parse(preprocessed.files);
             this.ast = ast;
-            runtime = new Runtime10thEnvironment(ast, this.inputQueue, this.maxSteps);
+            runtime = new Runtime10thEnvironment(ast, this.inputQueue, this.maxSteps, customWatchExpressions);
             const trace = runtime.execute();
             trace.ast = ast;
             return trace;
@@ -253,7 +253,7 @@ class CSharp10thInterpreter {
  * סביבת הריצה של מפרש כיתה י'
  */
 class Runtime10thEnvironment {
-    constructor(ast, inputQueue, maxSteps = 1500) {
+    constructor(ast, inputQueue, maxSteps = 1500, customWatchExpressions = []) {
         this.ast = ast;
         this.inputQueue = [...inputQueue];
         this.maxSteps = maxSteps;
@@ -266,6 +266,73 @@ class Runtime10thEnvironment {
         this.currentFile = 'Program.cs';
         this.traceTable = [];
         this.loopIterationCounters = {};
+        this.customWatchExpressions = Array.isArray(customWatchExpressions) ? customWatchExpressions : [];
+        this.trackedExpressions = this.extractTrackedExpressions();
+    }
+
+    extractTrackedExpressions() {
+        const expressions = new Set();
+        if (Array.isArray(this.customWatchExpressions)) {
+            this.customWatchExpressions.forEach(expr => {
+                if (expr && typeof expr === 'string' && expr.trim().length > 0) {
+                    expressions.add(expr.trim());
+                }
+            });
+        }
+
+        const scanText = (code) => {
+            if (!code) return;
+            const cleanCode = code.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+            const regex = /\b([A-Za-z_][A-Za-z0-9_]*)\s*\[/g;
+            let match;
+            while ((match = regex.exec(cleanCode)) !== null) {
+                const ident = match[1];
+                if (/^(int|double|string|char|bool|void|float|long|var|new)$/i.test(ident)) {
+                    continue;
+                }
+                const start = match.index;
+                const openBracket = cleanCode.indexOf('[', start);
+                let depth = 0;
+                let endBracket = -1;
+                for (let i = openBracket; i < cleanCode.length; i++) {
+                    const ch = cleanCode[i];
+                    if (ch === '[') depth++;
+                    else if (ch === ']') {
+                        depth--;
+                        if (depth === 0) {
+                            endBracket = i;
+                            break;
+                        }
+                    } else if (ch === ';' || ch === '\n' || ch === '{' || ch === '}') {
+                        break;
+                    }
+                }
+                if (endBracket !== -1) {
+                    const rawExpr = cleanCode.slice(start, endBracket + 1).replace(/\s+/g, ' ').trim();
+                    const inside = rawExpr.slice(rawExpr.indexOf('[') + 1, -1).trim();
+                    if (inside.length > 0 && inside !== ',') {
+                        expressions.add(rawExpr);
+                        scanText(inside);
+                    }
+                }
+            }
+        };
+
+        if (this.ast && this.ast.classes) {
+            for (const cls of this.ast.classes) {
+                if (cls.methods) {
+                    for (const m of cls.methods) {
+                        scanText(m.body);
+                    }
+                }
+                if (cls.constructors) {
+                    for (const c of cls.constructors) {
+                        scanText(c.body);
+                    }
+                }
+            }
+        }
+        return Array.from(expressions);
     }
 
     execute() {
@@ -1491,6 +1558,10 @@ class Runtime10thEnvironment {
         const val = this.resolveVariable(expr, scopeVars);
         if (val !== undefined) return val;
 
+        if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(expr)) {
+            throw { message: `המשתנה '${expr}' אינו קיים בהקשר הנוכחי`, line, file: this.currentFile };
+        }
+
         return 0;
     }
 
@@ -1732,9 +1803,76 @@ class Runtime10thEnvironment {
         return String(val);
     }
 
+    deepCloneVal(val) {
+        if (val === null || val === undefined) return val;
+        if (typeof val !== 'object') return val;
+        if (Array.isArray(val)) {
+            const copy = val.map(item => this.deepCloneVal(item));
+            if (val._elemType) copy._elemType = val._elemType;
+            return copy;
+        }
+        if (val._isMatrix) {
+            return {
+                _isMatrix: true,
+                rows: val.rows,
+                cols: val.cols,
+                type: val.type,
+                grid: val.grid.map(row => row.map(cell => this.deepCloneVal(cell))),
+                activeCell: val.activeCell ? { ...val.activeCell } : null
+            };
+        }
+        if (val._heapId) {
+            return {
+                _heapId: val._heapId,
+                className: val.className,
+                fields: this.deepCloneVal(val.fields)
+            };
+        }
+        const copy = {};
+        for (const [k, v] of Object.entries(val)) {
+            copy[k] = this.deepCloneVal(v);
+        }
+        return copy;
+    }
+
     recordFrame(line, description, extra = {}) {
         this.stepCount++;
-        const currentScope = this.callStack.length > 0 ? { ...this.callStack[this.callStack.length - 1].variables } : {};
+        const rawScope = this.callStack.length > 0 ? this.callStack[this.callStack.length - 1].variables : {};
+        const currentScope = {};
+        for (const [k, v] of Object.entries(rawScope)) {
+            currentScope[k] = this.deepCloneVal(v);
+        }
+
+        // הוספת איברי מערכים ומטריצות בודדים למעקב (לדוגמה: arr[0], arr[1], ...)
+        for (const [varName, val] of Object.entries(rawScope)) {
+            if (Array.isArray(val) && val.length <= 20) {
+                for (let k = 0; k < val.length; k++) {
+                    currentScope[`${varName}[${k}]`] = this.deepCloneVal(val[k]);
+                }
+            } else if (val && val._isMatrix && (val.rows * val.cols <= 25)) {
+                for (let r = 0; r < val.rows; r++) {
+                    for (let c = 0; c < val.cols; c++) {
+                        currentScope[`${varName}[${r}, ${c}]`] = this.deepCloneVal(val.grid[r][c]);
+                    }
+                }
+            }
+        }
+
+        // הערכת ביטויי אינדקס מקוננים ודינמיים מהקוד (לדוגמה: arr[i], votes[i], candidate[votes[i] - 1])
+        if (this.trackedExpressions && this.trackedExpressions.length > 0) {
+            for (const expr of this.trackedExpressions) {
+                try {
+                    const res = this.evalExpr(expr, rawScope, line);
+                    if (res !== undefined && typeof res !== 'function') {
+                        currentScope[expr] = this.deepCloneVal(res);
+                    } else {
+                        currentScope[expr] = undefined;
+                    }
+                } catch (_) {
+                    currentScope[expr] = undefined;
+                }
+            }
+        }
 
         // זיהוי מערכים חד-ממדיים, מטריצות, מחרוזות, ואובייקטים פעילים
         const arrays1D = [];
@@ -1870,7 +2008,7 @@ class Runtime10thEnvironment {
                 funcName: c.funcName,
                 line: c.line,
                 file: c.file,
-                variables: { ...c.variables }
+                variables: this.deepCloneVal(c.variables)
             })),
             variables: currentScope,
             condition: extra.condition || null,

@@ -15,6 +15,8 @@ class Visualizer10thApp {
         this.memFilter = 'all';
         this.selectedTraceVars = new Set();
         this.allTraceVars = [];
+        this.hasCustomTraceSelection = false;
+        this.customWatchExpressions = new Set();
 
         // ניהול קבצים בלשוניות (Class Tabs)
         this.editorFiles = {
@@ -158,6 +160,8 @@ class Visualizer10thApp {
         this.dom.btnTraceSelectAll = document.getElementById('btn-trace-select-all');
         this.dom.btnTraceDeselectAll = document.getElementById('btn-trace-deselect-all');
         this.dom.btnCopyTrace = document.getElementById('btn-copy-trace');
+        this.dom.inputAddTraceVar = document.getElementById('input-add-trace-var');
+        this.dom.btnAddTraceVar = document.getElementById('btn-add-trace-var');
 
         this.dom.resizer = document.getElementById('resizer-h');
         this.dom.editorPanel = document.getElementById('editor-panel');
@@ -362,21 +366,46 @@ class Visualizer10thApp {
             });
         }
 
-        // כפתורי סמן הכל / בטל הכל עבור עמודות טבלת מעקב
+        // כפתורי סמן הכל / בטל הכל והוספת ביטוי מותאם אישית עבור עמודות טבלת מעקב
         if (this.dom.btnTraceSelectAll) {
             this.dom.btnTraceSelectAll.addEventListener('click', () => {
                 if (this.allTraceVars) {
+                    this.hasCustomTraceSelection = true;
                     this.selectedTraceVars = new Set(this.allTraceVars);
                     this.updateTraceChipsCheckedState();
-                    this.renderTraceTable();
+                    this.renderTraceTable(true);
                 }
             });
         }
         if (this.dom.btnTraceDeselectAll) {
             this.dom.btnTraceDeselectAll.addEventListener('click', () => {
+                this.hasCustomTraceSelection = true;
                 this.selectedTraceVars.clear();
                 this.updateTraceChipsCheckedState();
-                this.renderTraceTable();
+                this.renderTraceTable(true);
+            });
+        }
+
+        const handleAddCustomVar = () => {
+            if (!this.dom.inputAddTraceVar) return;
+            const expr = this.dom.inputAddTraceVar.value.trim();
+            if (!expr) return;
+            this.customWatchExpressions.add(expr);
+            this.hasCustomTraceSelection = true;
+            this.selectedTraceVars.add(expr);
+            this.dom.inputAddTraceVar.value = '';
+            this.recompile(false);
+        };
+
+        if (this.dom.btnAddTraceVar) {
+            this.dom.btnAddTraceVar.addEventListener('click', handleAddCustomVar);
+        }
+        if (this.dom.inputAddTraceVar) {
+            this.dom.inputAddTraceVar.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddCustomVar();
+                }
             });
         }
 
@@ -759,6 +788,8 @@ class Visualizer10thApp {
 
         this.pause();
         this.selectedTraceVars.clear();
+        this.hasCustomTraceSelection = false;
+        this.customWatchExpressions.clear();
         this.editorFiles = {};
         for (const [fName, code] of Object.entries(preset.files)) {
             this.editorFiles[fName] = { name: fName, code: code };
@@ -863,13 +894,13 @@ class Visualizer10thApp {
 
     recompile(autoSwitchTab = false) {
         this.pause();
-        this.selectedTraceVars.clear();
         const codeFiles = {};
         for (const [name, obj] of Object.entries(this.editorFiles)) {
             codeFiles[name] = obj.code;
         }
 
-        const traceResult = this.interpreter.run(codeFiles);
+        const customWatches = Array.from(this.customWatchExpressions);
+        const traceResult = this.interpreter.run(codeFiles, [], customWatches);
         this.frames = traceResult.frames || [];
         this.currentFrameIdx = 0;
 
@@ -1183,12 +1214,16 @@ class Visualizer10thApp {
     }
 
     renderVariables(variables) {
-        const varKeys = variables ? Object.keys(variables) : [];
+        // סינון תאי מערך סטטיים (arr[0], arr[1]) כדי לשמור על לשונית המשתנים נקייה וממוקדת
+        const validEntries = variables 
+            ? Object.entries(variables).filter(([k]) => k !== 'this' && !k.startsWith('_') && !/\[\s*\d+\s*(?:,\s*\d+\s*)?\]/.test(k))
+            : [];
+
         if (this.dom.varsCountBadge) {
-            this.dom.varsCountBadge.textContent = `${varKeys.length} משתנים`;
+            this.dom.varsCountBadge.textContent = `${validEntries.length} משתנים`;
         }
 
-        if (!variables || varKeys.length === 0) {
+        if (!variables || validEntries.length === 0) {
             if (this.dom.variablesChipsGrid) {
                 this.dom.variablesChipsGrid.innerHTML = '';
             }
@@ -1201,7 +1236,7 @@ class Visualizer10thApp {
         let chipsHtml = '';
         let tableHtml = '';
 
-        for (const [key, val] of Object.entries(variables)) {
+        for (const [key, val] of validEntries) {
             let displayVal = val;
             if (Array.isArray(val)) {
                 const itemsStr = val.slice(0, 4).map(item => {
@@ -1309,12 +1344,56 @@ class Visualizer10thApp {
                 }
             }
         }
-        this.allTraceVars = Array.from(varSet);
+        for (const expr of this.customWatchExpressions) {
+            varSet.add(expr);
+        }
 
-        // סנכרון משתנים נבחרים - אם הסט ריק או שאינו מכיל אף משתנה מהריצה הנוכחית, בחר את כולם
-        const hasOverlap = this.allTraceVars.some(v => this.selectedTraceVars.has(v));
-        if ((this.selectedTraceVars.size === 0 || !hasOverlap) && this.allTraceVars.length > 0) {
+        // מיון פדגוגי הגיוני של משתני הטבלה
+        const getVarCategoryOrder = (name) => {
+            const loopCounters = ['i', 'j', 'k', 'r', 'c', 'idx', 'row', 'col', 'index', 'n', 'len'];
+            if (loopCounters.includes(name.toLowerCase())) return 1;
+            
+            // ביטוי אינדקס דינמי כמו arr[i], arr[j], votes[i], candidate[votes[i]-1], mat[r, c]
+            if (/\[.*[a-zA-Z].*\]/.test(name)) return 2;
+            
+            // משתנים סקלריים פשוטים ללא סוגריים מרובעים
+            const sampleVal = this.frames.find(f => f.variables && f.variables[name] !== undefined)?.variables[name];
+            const isArrayOrObj = Array.isArray(sampleVal) || (sampleVal && (sampleVal._isMatrix || sampleVal._heapId));
+            if (!name.includes('[') && !isArrayOrObj) return 3;
+            
+            // תאים ממוספרים סטטיים כמו arr[0], arr[1]
+            if (/\[\s*\d+\s*(?:,\s*\d+\s*)?\]/.test(name)) return 4;
+            
+            // מערכים שלמים, מטריצות, מחלקות
+            return 5;
+        };
+
+        this.allTraceVars = Array.from(varSet).sort((a, b) => {
+            const catA = getVarCategoryOrder(a);
+            const catB = getVarCategoryOrder(b);
+            if (catA !== catB) return catA - catB;
+            const matchA = a.match(/^(.*)\[(\d+)(?:,\s*(\d+))?\]$/);
+            const matchB = b.match(/^(.*)\[(\d+)(?:,\s*(\d+))?\]$/);
+            if (matchA && matchB && matchA[1] === matchB[1]) {
+                const numA1 = parseInt(matchA[2], 10);
+                const numB1 = parseInt(matchB[2], 10);
+                if (numA1 !== numB1) return numA1 - numB1;
+                const numA2 = matchA[3] !== undefined ? parseInt(matchA[3], 10) : 0;
+                const numB2 = matchB[3] !== undefined ? parseInt(matchB[3], 10) : 0;
+                return numA2 - numB2;
+            }
+            return a.localeCompare(b);
+        });
+
+        // סנכרון משתנים נבחרים - אם המשתמש לא שינה ידנית, בחר את כולם; אם שינה ידנית, כבד את בחירתו
+        if (!this.hasCustomTraceSelection) {
             this.selectedTraceVars = new Set(this.allTraceVars);
+        } else {
+            const valid = new Set();
+            for (const v of this.selectedTraceVars) {
+                if (this.allTraceVars.includes(v)) valid.add(v);
+            }
+            this.selectedTraceVars = valid;
         }
 
         if (!skipChips) {
@@ -1430,6 +1509,7 @@ class Visualizer10thApp {
 
         this.dom.traceVarChipsList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             cb.addEventListener('change', (e) => {
+                this.hasCustomTraceSelection = true;
                 const vName = e.target.value;
                 if (e.target.checked) {
                     this.selectedTraceVars.add(vName);

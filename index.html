@@ -356,7 +356,12 @@
                         <div class="trace-vars-bar">
                             <div class="trace-vars-header">
                                 <span class="vars-title">🎯 בחר אילו משתנים להציג / למזער בטבלה:</span>
-                                <div class="vars-actions">
+                                <div class="vars-actions" style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                                    <div class="add-trace-expr-box" style="display: inline-flex; align-items: center; gap: 0.3rem;">
+                                        <input type="text" id="input-add-trace-var" class="input-text-sm" placeholder="הוסף ביטוי למעקב (arr[i])" style="width: 175px; padding: 0.2rem 0.45rem; font-size: 0.76rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main);">
+                                        <button type="button" id="btn-add-trace-var" class="btn-quick" style="padding: 0.2rem 0.55rem; font-size: 0.76rem;">+ הוסף</button>
+                                    </div>
+                                    <span>|</span>
                                     <button type="button" id="btn-trace-select-all" class="btn-link-action">סמן הכל</button>
                                     <span>|</span>
                                     <button type="button" id="btn-trace-deselect-all" class="btn-link-action">בטל הכל</button>
