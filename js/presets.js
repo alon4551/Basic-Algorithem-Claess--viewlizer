@@ -1,7 +1,7 @@
 /**
- * Presets Library - 10th Grade C# & Java Fundamentals
+ * Presets Library - C# & Java Fundamentals
  * אלון שרייבמן — מורה פרטי
- * 6 דוגמאות בסיס קנוניות המייצגות את נושאי הליבה של שכבת י' ב-C# וב-Java
+ * דוגמאות בסיס קנוניות המייצגות את נושאי הליבה ביסודות מדעי המחשב ב-C# וב-Java
  */
 
 const PRESETS_10TH_CS = {

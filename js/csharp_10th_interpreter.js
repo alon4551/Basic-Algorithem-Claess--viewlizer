@@ -1,8 +1,8 @@
 /**
- * C# 10th Grade Fundamentals Interpreter & Execution Tracer
+ * C# Fundamentals Interpreter & Execution Tracer
  * אלון שרייבמן — מורה פרטי
  * 
- * מפרש קוד C# ייעודי לשכבת י':
+ * מפרש קוד C# ייעודי ליסודות מדעי המחשב:
  * - מערכים חד-ממדיים (1D Arrays)
  * - מטריצות דו-ממדיות (2D Rectangular & Jagged Matrices)
  * - מחרוזות ותווים (Strings & Chars)
@@ -256,7 +256,7 @@ class CSharp10thInterpreter {
 }
 
 /**
- * סביבת הריצה של מפרש כיתה י'
+ * סביבת הריצה של מפרש יסודות מדעי המחשב
  */
 class Runtime10thEnvironment {
     constructor(ast, inputQueue, maxSteps = 1500, customWatchExpressions = []) {

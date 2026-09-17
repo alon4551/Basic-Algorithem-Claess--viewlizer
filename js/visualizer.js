@@ -1,5 +1,5 @@
 /**
- * 10th Grade C# Fundamentals Visualizer UI Controller
+ * C# & Java Fundamentals Visualizer UI Controller
  * אלון שרייבמן — מורה פרטי
  */
 

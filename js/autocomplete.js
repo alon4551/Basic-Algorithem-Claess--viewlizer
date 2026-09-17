@@ -1,5 +1,5 @@
 /**
- * Autocomplete & Code Snippets for 10th Grade C# Fundamentals
+ * Autocomplete & Code Snippets for C# & Java Fundamentals
  * אלון שרייבמן — מורה פרטי
  */
 
