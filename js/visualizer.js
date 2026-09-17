@@ -18,22 +18,31 @@ class Visualizer10thApp {
         this.hasCustomTraceSelection = false;
         this.customWatchExpressions = new Set();
 
-        // ניהול קבצים בלשוניות (Class Tabs)
+        // ניהול שפה וקבצים בלשוניות (Class Tabs)
+        this.currentLang = 'csharp'; // 'csharp' | 'java'
+        const mainFile = this.getMainFileName();
+        const initialPresets = typeof getPresets10th === 'function' ? getPresets10th('csharp') : PRESETS_10TH;
+        const initialCode = (initialPresets['empty_main'] && initialPresets['empty_main'].files[mainFile]) || '';
         this.editorFiles = {
-            'Program.cs': {
-                name: 'Program.cs',
-                code: PRESETS_10TH['empty_main'].files['Program.cs']
+            [mainFile]: {
+                name: mainFile,
+                code: initialCode
             }
         };
-        this.activeFileName = 'Program.cs';
+        this.activeFileName = mainFile;
         this.recompileTimer = null;
         this.dom = {};
+    }
+
+    getMainFileName() {
+        return this.currentLang === 'java' ? 'Main.java' : 'Program.cs';
     }
 
     init() {
         this.cacheDom();
         this.bindEvents();
         this.setupAutocomplete();
+        this.updatePresetsDropdown();
         this.renderTabs();
         this.setupResizer();
         this.setupStageVerticalResizer();
@@ -43,6 +52,8 @@ class Visualizer10thApp {
 
     cacheDom() {
         this.dom.studioModeButtons = document.querySelectorAll('.btn-studio-mode');
+        this.dom.btnLangCs = document.getElementById('btn-lang-cs');
+        this.dom.btnLangJava = document.getElementById('btn-lang-java');
         this.dom.presetSelect = document.getElementById('preset-select');
         this.dom.btnToggleInitCard = document.getElementById('btn-toggle-init-card');
         this.dom.cardFlexibleInit = document.getElementById('card-flexible-init');
@@ -168,7 +179,44 @@ class Visualizer10thApp {
         this.dom.visualPanel = document.getElementById('visual-panel');
     }
 
+    setLanguage(lang) {
+        if (this.currentLang === lang) return;
+        this.currentLang = lang;
+
+        if (this.dom.btnLangCs && this.dom.btnLangJava) {
+            this.dom.btnLangCs.classList.toggle('active', lang === 'csharp');
+            this.dom.btnLangJava.classList.toggle('active', lang === 'java');
+        }
+
+        this.updatePresetsDropdown();
+        const currentPresetId = (this.dom.presetSelect && this.dom.presetSelect.value) || 'empty_main';
+        this.loadPreset(currentPresetId);
+    }
+
+    updatePresetsDropdown() {
+        if (!this.dom.presetSelect) return;
+        const presets = typeof getPresets10th === 'function' ? getPresets10th(this.currentLang) : PRESETS_10TH;
+        const currentValue = this.dom.presetSelect.value || 'empty_main';
+
+        this.dom.presetSelect.innerHTML = '';
+        for (const [id, p] of Object.entries(presets)) {
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = p.title;
+            if (id === currentValue) opt.selected = true;
+            this.dom.presetSelect.appendChild(opt);
+        }
+    }
+
     bindEvents() {
+        // בורר שפה (C# / Java)
+        if (this.dom.btnLangCs) {
+            this.dom.btnLangCs.addEventListener('click', () => this.setLanguage('csharp'));
+        }
+        if (this.dom.btnLangJava) {
+            this.dom.btnLangJava.addEventListener('click', () => this.setLanguage('java'));
+        }
+
         // בורר מצבים עליון
         this.dom.studioModeButtons.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -254,14 +302,23 @@ class Visualizer10thApp {
             this.dom.btnInitApplyArray.addEventListener('click', () => {
                 const raw = this.dom.initArrayInput.value.trim();
                 const snippet = `int[] arr = { ${raw} };`;
-                const code = this.editorFiles['Program.cs'].code;
+                const mainFile = this.getMainFileName();
+                if (!this.editorFiles[mainFile]) return;
+                const code = this.editorFiles[mainFile].code;
                 if (code.includes('int[] arr =')) {
-                    this.editorFiles['Program.cs'].code = code.replace(/int\[\]\s*arr\s*=\s*\{[^}]*\};/, snippet);
+                    this.editorFiles[mainFile].code = code.replace(/int\[\]\s*arr\s*=\s*\{[^}]*\};/, snippet);
                 } else {
-                    this.editorFiles['Program.cs'].code = code.replace(/public\s+static\s+void\s+Main\s*\([^)]*\)\s*\{/, `public static void Main()\n    {\n        ${snippet}`);
+                    const isJava = this.currentLang === 'java';
+                    const mainRegex = isJava
+                        ? /public\s+static\s+void\s+main\s*\([^)]*\)\s*\{/
+                        : /public\s+static\s+void\s+Main\s*\([^)]*\)\s*\{/;
+                    const mainReplace = isJava
+                        ? `public static void main(String[] args) {\n        ${snippet}`
+                        : `public static void Main()\n    {\n        ${snippet}`;
+                    this.editorFiles[mainFile].code = code.replace(mainRegex, mainReplace);
                 }
-                if (this.activeFileName === 'Program.cs') {
-                    this.dom.codeTextarea.value = this.editorFiles['Program.cs'].code;
+                if (this.activeFileName === mainFile) {
+                    this.dom.codeTextarea.value = this.editorFiles[mainFile].code;
                     this.updateLineNumbers();
                 }
                 this.recompile();
@@ -289,16 +346,31 @@ class Visualizer10thApp {
                 const text = this.dom.initMatInput.value.trim();
                 const rowLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
                 const rowsFormatted = rowLines.map(line => `        { ${line} }`).join(',\n');
-                const snippet = `int[,] mat = {\n${rowsFormatted}\n    };`;
+                const isJava = this.currentLang === 'java';
+                const snippet = isJava
+                    ? `int[][] mat = {\n${rowsFormatted}\n    };`
+                    : `int[,] mat = {\n${rowsFormatted}\n    };`;
 
-                const code = this.editorFiles['Program.cs'].code;
-                if (code.includes('int[,] mat =')) {
-                    this.editorFiles['Program.cs'].code = code.replace(/int\[,\]\s*mat\s*=\s*\{[\s\S]*?\};/, snippet);
+                const mainFile = this.getMainFileName();
+                if (!this.editorFiles[mainFile]) return;
+                const code = this.editorFiles[mainFile].code;
+                const matRegex = isJava
+                    ? /int\[\]\[\]\s*mat\s*=\s*\{[\s\S]*?\};/
+                    : /int\[,\]\s*mat\s*=\s*\{[\s\S]*?\};/;
+
+                if (matRegex.test(code)) {
+                    this.editorFiles[mainFile].code = code.replace(matRegex, snippet);
                 } else {
-                    this.editorFiles['Program.cs'].code = code.replace(/public\s+static\s+void\s+Main\s*\([^)]*\)\s*\{/, `public static void Main()\n    {\n        ${snippet}`);
+                    const mainRegex = isJava
+                        ? /public\s+static\s+void\s+main\s*\([^)]*\)\s*\{/
+                        : /public\s+static\s+void\s+Main\s*\([^)]*\)\s*\{/;
+                    const mainReplace = isJava
+                        ? `public static void main(String[] args) {\n${snippet}`
+                        : `public static void Main()\n    {\n        ${snippet}`;
+                    this.editorFiles[mainFile].code = code.replace(mainRegex, mainReplace);
                 }
-                if (this.activeFileName === 'Program.cs') {
-                    this.dom.codeTextarea.value = this.editorFiles['Program.cs'].code;
+                if (this.activeFileName === mainFile) {
+                    this.dom.codeTextarea.value = this.editorFiles[mainFile].code;
                     this.updateLineNumbers();
                 }
                 this.recompile();
@@ -308,15 +380,28 @@ class Visualizer10thApp {
         if (this.dom.btnInitApplyString) {
             this.dom.btnInitApplyString.addEventListener('click', () => {
                 const word = this.dom.initStringInput.value.trim();
-                const snippet = `string word = "${word}";`;
-                const code = this.editorFiles['Program.cs'].code;
-                if (/string\s+(word|str|text)\s*=\s*"[^"]*";/.test(code)) {
-                    this.editorFiles['Program.cs'].code = code.replace(/string\s+(word|str|text)\s*=\s*"[^"]*";/, snippet);
+                const isJava = this.currentLang === 'java';
+                const snippet = isJava ? `String word = "${word}";` : `string word = "${word}";`;
+                const mainFile = this.getMainFileName();
+                if (!this.editorFiles[mainFile]) return;
+                const code = this.editorFiles[mainFile].code;
+                const strRegex = isJava
+                    ? /String\s+(word|str|text)\s*=\s*"[^"]*";/
+                    : /string\s+(word|str|text)\s*=\s*"[^"]*";/;
+
+                if (strRegex.test(code)) {
+                    this.editorFiles[mainFile].code = code.replace(strRegex, snippet);
                 } else {
-                    this.editorFiles['Program.cs'].code = code.replace(/public\s+static\s+void\s+Main\s*\([^)]*\)\s*\{/, `public static void Main()\n    {\n        ${snippet}`);
+                    const mainRegex = isJava
+                        ? /public\s+static\s+void\s+main\s*\([^)]*\)\s*\{/
+                        : /public\s+static\s+void\s+Main\s*\([^)]*\)\s*\{/;
+                    const mainReplace = isJava
+                        ? `public static void main(String[] args) {\n        ${snippet}`
+                        : `public static void Main()\n    {\n        ${snippet}`;
+                    this.editorFiles[mainFile].code = code.replace(mainRegex, mainReplace);
                 }
-                if (this.activeFileName === 'Program.cs') {
-                    this.dom.codeTextarea.value = this.editorFiles['Program.cs'].code;
+                if (this.activeFileName === mainFile) {
+                    this.dom.codeTextarea.value = this.editorFiles[mainFile].code;
                     this.updateLineNumbers();
                 }
                 this.recompile();
@@ -783,7 +868,8 @@ class Visualizer10thApp {
     }
 
     loadPreset(presetId) {
-        const preset = PRESETS_10TH[presetId];
+        const presets = typeof getPresets10th === 'function' ? getPresets10th(this.currentLang) : PRESETS_10TH;
+        const preset = presets[presetId] || presets['empty_main'];
         if (!preset) return;
 
         this.pause();
@@ -794,9 +880,12 @@ class Visualizer10thApp {
         for (const [fName, code] of Object.entries(preset.files)) {
             this.editorFiles[fName] = { name: fName, code: code };
         }
-        this.activeFileName = 'Program.cs';
+        const mainFile = this.getMainFileName();
+        this.activeFileName = this.editorFiles[mainFile] ? mainFile : Object.keys(this.editorFiles)[0];
         this.renderTabs();
-        this.dom.codeTextarea.value = this.editorFiles[this.activeFileName].code;
+        if (this.dom.codeTextarea && this.editorFiles[this.activeFileName]) {
+            this.dom.codeTextarea.value = this.editorFiles[this.activeFileName].code;
+        }
         this.updateLineNumbers();
 
         // עדכון מצב סטודיו לפי הפרסט
@@ -814,11 +903,12 @@ class Visualizer10thApp {
 
     renderTabs() {
         this.dom.editorTabsList.innerHTML = '';
+        const mainFile = this.getMainFileName();
         for (const fName of Object.keys(this.editorFiles)) {
             const tab = document.createElement('div');
             tab.className = 'tab-file' + (fName === this.activeFileName ? ' active' : '');
             tab.innerHTML = `<span>${fName}</span>` + 
-                (fName !== 'Program.cs' ? `<span class="tab-close-btn" title="סגור קובץ">&times;</span>` : '');
+                (fName !== mainFile ? `<span class="tab-close-btn" title="סגור קובץ">&times;</span>` : '');
 
             tab.addEventListener('click', (e) => {
                 if (e.target.classList.contains('tab-close-btn')) {
@@ -848,19 +938,26 @@ class Visualizer10thApp {
     }
 
     promptAddClass() {
-        const name = prompt('הזן שם למחלקה החדשה ב-C# (לדוגמה: Student, Point, Car):');
+        const langName = this.currentLang === 'java' ? 'Java' : 'C#';
+        const name = prompt(`הזן שם למחלקה החדשה ב-${langName} (לדוגמה: Student, Point, Car):`);
         if (!name) return;
         const cleanName = name.replace(/[^A-Za-z0-9_]/g, '');
         if (!cleanName) return;
-        const fName = `${cleanName}.cs`;
+        const ext = this.currentLang === 'java' ? '.java' : '.cs';
+        const fName = `${cleanName}${ext}`;
         if (this.editorFiles[fName]) {
             alert(`הקובץ ${fName} כבר קיים במערכת.`);
             return;
         }
 
+        const isJava = this.currentLang === 'java';
+        const defaultCode = isJava
+            ? `public class ${cleanName} {\n    // שדות המחלקה\n    public String name;\n    public int value;\n\n    // בנאי\n    public ${cleanName}(String name, int value) {\n        this.name = name;\n        this.value = value;\n    }\n}`
+            : `public class ${cleanName}\n{\n    // שדות המחלקה\n    public string name;\n    public int value;\n\n    // בנאי\n    public ${cleanName}(string name, int value)\n    {\n        this.name = name;\n        this.value = value;\n    }\n}`;
+
         this.editorFiles[fName] = {
             name: fName,
-            code: `public class ${cleanName}\n{\n    // שדות המחלקה\n    public string name;\n    public int value;\n\n    // בנאי\n    public ${cleanName}(string name, int value)\n    {\n        this.name = name;\n        this.value = value;\n    }\n}`
+            code: defaultCode
         };
 
         this.switchTab(fName);
@@ -868,12 +965,15 @@ class Visualizer10thApp {
     }
 
     removeTab(fName) {
-        if (fName === 'Program.cs') return;
+        const mainFile = this.getMainFileName();
+        if (fName === mainFile) return;
         if (!confirm(`האם אתה בטוח שברצונך למחוק את ${fName}?`)) return;
         delete this.editorFiles[fName];
         if (this.activeFileName === fName) {
-            this.activeFileName = 'Program.cs';
-            this.dom.codeTextarea.value = this.editorFiles['Program.cs'].code;
+            this.activeFileName = mainFile;
+            if (this.editorFiles[mainFile]) {
+                this.dom.codeTextarea.value = this.editorFiles[mainFile].code;
+            }
             this.renderTabs();
             this.updateLineNumbers();
             this.updateActiveLinePosition();
@@ -1340,6 +1440,10 @@ class Visualizer10thApp {
             if (f.variables) {
                 for (const [k, v] of Object.entries(f.variables)) {
                     if (k === 'this' || k.startsWith('_')) continue;
+                    // סינון אינדקסים סטטיים כגון arr[0], arr[4] שאינם רלוונטיים, אלא אם המשתמש הוסיף אותם במפורש למעקב
+                    if (/\[\s*\d+\s*(?:,\s*\d+\s*|\]\s*\[\s*\d+\s*)?\]$/.test(k) && !this.customWatchExpressions.has(k)) {
+                        continue;
+                    }
                     varSet.add(k);
                 }
             }
@@ -1640,13 +1744,17 @@ class Visualizer10thApp {
         const snippet = `int[] arr = { ${values.join(', ')} };`;
 
         // החלפה אוטומטית בקוד הקיים
-        const currentCode = this.editorFiles['Program.cs'].code;
+        const mainFile = this.getMainFileName();
+        if (!this.editorFiles[mainFile]) return;
+        const currentCode = this.editorFiles[mainFile].code;
         if (currentCode.includes('int[] arr =')) {
-            this.editorFiles['Program.cs'].code = currentCode.replace(/int\[\]\s*arr\s*=\s*\{[^}]*\};/, snippet);
+            this.editorFiles[mainFile].code = currentCode.replace(/int\[\]\s*arr\s*=\s*\{[^}]*\};/, snippet);
         } else {
             alert(`נוצר מערך חדש:\n${snippet}`);
         }
-        this.dom.codeTextarea.value = this.editorFiles[this.activeFileName].code;
+        if (this.activeFileName === mainFile) {
+            this.dom.codeTextarea.value = this.editorFiles[mainFile].code;
+        }
         this.recompile();
     }
 
@@ -1659,15 +1767,23 @@ class Visualizer10thApp {
             }
             rowStrings.push(`    { ${vals.join(', ')} }`);
         }
-        const snippet = `int[,] mat = {\n${rowStrings.join(',\n')}\n};`;
+        const isJava = this.currentLang === 'java';
+        const snippet = isJava
+            ? `int[][] mat = {\n${rowStrings.join(',\n')}\n};`
+            : `int[,] mat = {\n${rowStrings.join(',\n')}\n};`;
 
-        const currentCode = this.editorFiles['Program.cs'].code;
-        if (currentCode.includes('int[,] mat =')) {
-            this.editorFiles['Program.cs'].code = currentCode.replace(/int\[,\]\s*mat\s*=\s*\{[\s\S]*?\};/, snippet);
+        const mainFile = this.getMainFileName();
+        if (!this.editorFiles[mainFile]) return;
+        const currentCode = this.editorFiles[mainFile].code;
+        const matRegex = isJava ? /int\[\]\[\]\s*mat\s*=\s*\{[\s\S]*?\};/ : /int\[,\]\s*mat\s*=\s*\{[\s\S]*?\};/;
+        if (matRegex.test(currentCode)) {
+            this.editorFiles[mainFile].code = currentCode.replace(matRegex, snippet);
         } else {
             alert(`נוצרה מטריצה חדשה:\n${snippet}`);
         }
-        this.dom.codeTextarea.value = this.editorFiles[this.activeFileName].code;
+        if (this.activeFileName === mainFile) {
+            this.dom.codeTextarea.value = this.editorFiles[mainFile].code;
+        }
         this.recompile();
     }
 

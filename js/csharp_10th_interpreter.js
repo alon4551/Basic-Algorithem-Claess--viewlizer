@@ -77,17 +77,23 @@ class CSharp10thInterpreter {
 
     preprocess(source) {
         const files = {};
+        const cleanJavaMeta = (code) => {
+            if (!code) return '';
+            // ניקוי הצהרות package ו-import ב-Java תוך שימור מספרי השורות
+            return code.replace(/^\s*(?:package|import)\s+[^;]+;/gm, (match) => ' '.repeat(match.length));
+        };
+
         if (typeof source === 'string') {
-            files['Program.cs'] = source;
+            files['Program.cs'] = cleanJavaMeta(source);
         } else if (Array.isArray(source)) {
             for (const item of source) {
                 if (item && item.name) {
-                    files[item.name] = item.code || '';
+                    files[item.name] = cleanJavaMeta(item.code || '');
                 }
             }
         } else if (source && typeof source === 'object') {
             for (const [key, val] of Object.entries(source)) {
-                files[key] = (typeof val === 'string') ? val : (val.code || '');
+                files[key] = cleanJavaMeta((typeof val === 'string') ? val : (val.code || ''));
             }
         }
         return { files };
@@ -104,8 +110,8 @@ class CSharp10thInterpreter {
 
     extractClasses(code, fileName) {
         const result = [];
-        // מציאת בלוקי מחלקות
-        const classRegex = /(?:public\s+|private\s+|internal\s+)?class\s+([A-Za-z0-9_]+)(?:\s*:\s*([A-Za-z0-9_]+))?\s*\{/g;
+        // מציאת בלוקי מחלקות ב-C# (:) וב-Java (extends / implements)
+        const classRegex = /(?:public\s+|private\s+|internal\s+)?class\s+([A-Za-z0-9_]+)(?:\s*(?::|extends|implements)\s*([A-Za-z0-9_]+))?(?:\s+implements\s+[A-Za-z0-9_,\s]+)?\s*\{/g;
         let match;
         while ((match = classRegex.exec(code)) !== null) {
             const className = match[1];
@@ -287,7 +293,7 @@ class Runtime10thEnvironment {
             let match;
             while ((match = regex.exec(cleanCode)) !== null) {
                 const ident = match[1];
-                if (/^(int|double|string|char|bool|void|float|long|var|new)$/i.test(ident)) {
+                if (/^(int|double|string|String|char|bool|boolean|void|float|long|var|new)$/i.test(ident)) {
                     continue;
                 }
                 const start = match.index;
@@ -308,11 +314,47 @@ class Runtime10thEnvironment {
                     }
                 }
                 if (endBracket !== -1) {
-                    const rawExpr = cleanCode.slice(start, endBracket + 1).replace(/\s+/g, ' ').trim();
+                    let fullEnd = endBracket;
+                    // בדיקה אם יש סוגריים מרובעים שניים צמודים (מערך דו-ממדי ב-Java: target[r][c])
+                    if (endBracket + 1 < cleanCode.length && cleanCode[endBracket + 1] === '[') {
+                        let depth2 = 0;
+                        for (let j = endBracket + 1; j < cleanCode.length; j++) {
+                            const ch2 = cleanCode[j];
+                            if (ch2 === '[') depth2++;
+                            else if (ch2 === ']') {
+                                depth2--;
+                                if (depth2 === 0) {
+                                    fullEnd = j;
+                                    break;
+                                }
+                            } else if (ch2 === ';' || ch2 === '\n' || ch2 === '{' || ch2 === '}') {
+                                break;
+                            }
+                        }
+                    }
+                    const rawExpr = cleanCode.slice(start, fullEnd + 1).replace(/\s+/g, ' ').trim();
                     const inside = rawExpr.slice(rawExpr.indexOf('[') + 1, -1).trim();
-                    if (inside.length > 0 && inside !== ',') {
+                    // אם הביטוי הוא אינדקס קבוע בלבד (לדוגמה arr[4] או arr[0]), נדלג עליו כדי לא להעמיס על טבלת המעקב
+                    const isConstantIndex = /^\[\s*\d+\s*(?:,\s*\d+\s*|\]\s*\[\s*\d+\s*)?\]$/.test(rawExpr.slice(rawExpr.indexOf('[')));
+                    if (inside.length > 0 && inside !== ',' && !isConstantIndex) {
                         expressions.add(rawExpr);
                         scanText(inside);
+                    }
+                }
+            }
+
+            // זיהוי קריאות charAt במחרוזות ב-Java: str.charAt(...)
+            const charAtRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\.charAt\s*\(/g;
+            let charAtMatch;
+            while ((charAtMatch = charAtRegex.exec(cleanCode)) !== null) {
+                const openP = cleanCode.indexOf('(', charAtMatch.index);
+                const closeP = this.findMatchingParen(cleanCode, openP);
+                if (closeP !== -1) {
+                    const rawCharAt = cleanCode.slice(charAtMatch.index, closeP + 1).trim();
+                    // סינון אינדקס קבוע (כמו str.charAt(0)) - מנטר רק אינדקסים דינמיים
+                    const innerArg = cleanCode.slice(openP + 1, closeP).trim();
+                    if (!/^\d+$/.test(innerArg)) {
+                        expressions.add(rawCharAt);
                     }
                 }
             }
@@ -352,7 +394,8 @@ class Runtime10thEnvironment {
         }
 
         if (!mainMethod) {
-            throw { message: 'לא נמצאה מתודת Main בתוכנית. ודא שקיימת המחלקה Program ובתוכה public static void Main()', line: 1, file: 'Program.cs' };
+            const firstFile = (this.ast && this.ast.files && Object.keys(this.ast.files)[0]) || 'Program.cs';
+            throw { message: 'לא נמצאה מתודת Main / main בתוכנית. ודא שקיימת מחלקה ראשית (Program או Main) ובתוכה public static void Main() או public static void main(String[] args)', line: 1, file: firstFile };
         }
 
         this.currentFile = mainMethod.fileName;
@@ -674,8 +717,9 @@ class Runtime10thEnvironment {
             return { type: 'continue' };
         }
 
-        // Console.WriteLine / Console.Write
-        if (raw.startsWith('Console.WriteLine') || raw.startsWith('Console.Write')) {
+        // Console.WriteLine / Console.Write / System.out.println / System.out.print
+        if (raw.startsWith('Console.WriteLine') || raw.startsWith('Console.Write') ||
+            raw.startsWith('System.out.println') || raw.startsWith('System.out.print')) {
             return this.executeConsolePrint(raw, scopeVars, line);
         }
 
@@ -782,7 +826,7 @@ class Runtime10thEnvironment {
     }
 
     executeConsolePrint(raw, scopeVars, line) {
-        const isLine = raw.startsWith('Console.WriteLine');
+        const isLine = raw.startsWith('Console.WriteLine') || raw.startsWith('System.out.println');
         const openP = raw.indexOf('(');
         const closeP = raw.lastIndexOf(')');
         let text = '';
@@ -878,8 +922,9 @@ class Runtime10thEnvironment {
                     const type = parts.slice(0, -1).join(' ');
                     const varName = parts[parts.length - 1];
                     if (/^[A-Za-z0-9_]+$/.test(varName)) {
-                        if (Array.isArray(rhsVal) && type.endsWith('[]')) {
-                            rhsVal._elemType = type.slice(0, -2).trim();
+                        if (Array.isArray(rhsVal)) {
+                            if (type.endsWith('[][]')) rhsVal._elemType = type.slice(0, -4).trim();
+                            else if (type.endsWith('[]')) rhsVal._elemType = type.slice(0, -2).trim();
                         }
                         scopeVars[varName] = rhsVal;
                         this.recordFrame(line, `הצהרה והשמה: ${type} ${varName} = ${this.formatVal(rhsVal)}`);
@@ -894,14 +939,14 @@ class Runtime10thEnvironment {
             }
         }
 
-        // הצהרת משתנה ללא אתחול: int x; או int[] arr;
+        // הצהרת משתנה ללא אתחול: int x; או int[] arr; או int[][] mat;
         const declParts = raw.split(/\s+/);
         if (declParts.length >= 2) {
             const type = declParts.slice(0, -1).join(' ');
             const varName = declParts[declParts.length - 1];
             let defaultVal = 0;
-            if (type === 'string') defaultVal = '';
-            else if (type === 'bool') defaultVal = false;
+            if (type === 'string' || type === 'String') defaultVal = '';
+            else if (type === 'bool' || type === 'boolean') defaultVal = false;
             else if (type.includes('[') || type.includes('class')) defaultVal = null;
             scopeVars[varName] = defaultVal;
             this.recordFrame(line, `הצהרת משתנה: ${type} ${varName}`);
@@ -921,11 +966,23 @@ class Runtime10thEnvironment {
                 const r = this.evalExpr(indexed.rowExpr, scopeVars, line);
                 const c = this.evalExpr(indexed.colExpr, scopeVars, line);
                 const matObj = this.resolveVariable(matName, scopeVars);
-                if (!matObj || !matObj.grid) throw { message: `ניסיון לגשת למטריצה שאינה קיימת או שערכה null: ${matName}`, line, file: this.currentFile };
-                if (r < 0 || r >= matObj.rows || c < 0 || c >= matObj.cols) {
-                    throw { message: `חריגה מגבולות המטריצה [${r}, ${c}] במטריצה בגודל ${matObj.rows}x${matObj.cols}`, line, file: this.currentFile };
+                if (matObj && matObj.grid) {
+                    if (r < 0 || r >= matObj.rows || c < 0 || c >= matObj.cols) {
+                        throw { message: `חריגה מגבולות המטריצה [${r}, ${c}] במטריצה בגודל ${matObj.rows}x${matObj.cols}`, line, file: this.currentFile };
+                    }
+                    return matObj.grid[r][c];
                 }
-                return matObj.grid[r][c];
+                if (Array.isArray(matObj)) {
+                    if (r < 0 || r >= matObj.length) {
+                        throw { message: `חריגה מגבולות המטריצה: שורה [${r}] במטריצה בעלת ${matObj.length} שורות`, line, file: this.currentFile };
+                    }
+                    const rowArr = matObj[r];
+                    if (!Array.isArray(rowArr) || c < 0 || c >= rowArr.length) {
+                        throw { message: `חריגה מגבולות המטריצה: עמודה [${c}]`, line, file: this.currentFile };
+                    }
+                    return rowArr[c];
+                }
+                throw { message: `ניסיון לגשת למטריצה שאינה קיימת או שערכה null: ${matName}`, line, file: this.currentFile };
             } else if (indexed.type === '1D') {
                 const arrName = indexed.target;
                 const idx = this.evalExpr(indexed.indexExpr, scopeVars, line);
@@ -961,13 +1018,27 @@ class Runtime10thEnvironment {
                 const r = this.evalExpr(indexed.rowExpr, scopeVars, line);
                 const c = this.evalExpr(indexed.colExpr, scopeVars, line);
                 const matObj = this.resolveVariable(matName, scopeVars);
-                if (!matObj || !matObj.grid) throw { message: `ניסיון לגשת למטריצה שלא אותחלה: ${matName}`, line, file: this.currentFile };
-                if (r < 0 || r >= matObj.rows || c < 0 || c >= matObj.cols) {
-                    throw { message: `שגיאת חריגה מגבולות המטריצה [${r}, ${c}] במטריצה בגודל ${matObj.rows}x${matObj.cols}`, line, file: this.currentFile };
+                if (matObj && matObj.grid) {
+                    if (r < 0 || r >= matObj.rows || c < 0 || c >= matObj.cols) {
+                        throw { message: `שגיאת חריגה מגבולות המטריצה [${r}, ${c}] במטריצה בגודל ${matObj.rows}x${matObj.cols}`, line, file: this.currentFile };
+                    }
+                    matObj.grid[r][c] = val;
+                    matObj.activeCell = { r, c };
+                    return;
                 }
-                matObj.grid[r][c] = val;
-                matObj.activeCell = { r, c };
-                return;
+                if (Array.isArray(matObj)) {
+                    if (r < 0 || r >= matObj.length) {
+                        throw { message: `שגיאת חריגה מגבולות המטריצה: שורה [${r}] במטריצה בעלת ${matObj.length} שורות`, line, file: this.currentFile };
+                    }
+                    const rowArr = matObj[r];
+                    if (!Array.isArray(rowArr) || c < 0 || c >= rowArr.length) {
+                        throw { message: `שגיאת חריגה מגבולות המטריצה: [${r}][${c}]`, line, file: this.currentFile };
+                    }
+                    rowArr[c] = val;
+                    matObj._activeCell = { r, c };
+                    return;
+                }
+                throw { message: `ניסיון לגשת למטריצה שלא אותחלה: ${matName}`, line, file: this.currentFile };
             } else if (indexed.type === '1D') {
                 const arrName = indexed.target;
                 const idx = this.evalExpr(indexed.indexExpr, scopeVars, line);
@@ -1079,21 +1150,21 @@ class Runtime10thEnvironment {
             return val;
         }
 
-        // int.Parse / double.Parse
-        if (expr.startsWith('int.Parse(') || expr.startsWith('Convert.ToInt32(')) {
+        // int.Parse / Integer.parseInt / double.Parse / Double.parseDouble
+        if (expr.startsWith('int.Parse(') || expr.startsWith('Convert.ToInt32(') || expr.startsWith('Integer.parseInt(')) {
             const inner = expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim();
             const val = this.evalExpr(inner, scopeVars, line);
             const res = parseInt(val, 10);
             return isNaN(res) ? 0 : res;
         }
-        if (expr.startsWith('double.Parse(') || expr.startsWith('Convert.ToDouble(')) {
+        if (expr.startsWith('double.Parse(') || expr.startsWith('Convert.ToDouble(') || expr.startsWith('Double.parseDouble(')) {
             const inner = expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim();
             const val = this.evalExpr(inner, scopeVars, line);
             const res = parseFloat(val);
             return isNaN(res) ? 0.0 : res;
         }
 
-        // new int[size] או new int[rows, cols]
+        // new int[size] או new int[rows, cols] או new int[rows][cols]
         if (expr.startsWith('new ') && expr.endsWith(']')) {
             const newTarget = expr.slice(4).trim();
             const newIndexed = this.parseIndexedAccess(newTarget);
@@ -1103,8 +1174,8 @@ class Runtime10thEnvironment {
                     const size = this.evalExpr(newIndexed.indexExpr, scopeVars, line);
                     if (size < 0) throw { message: `לא ניתן ליצור מערך בגודל שלילי: ${size}`, line, file: this.currentFile };
                     let defaultVal = 0;
-                    if (type === 'string') defaultVal = '';
-                    else if (type === 'bool') defaultVal = false;
+                    if (type === 'string' || type === 'String') defaultVal = '';
+                    else if (type === 'bool' || type === 'boolean') defaultVal = false;
                     else if (type === 'char') defaultVal = '\0';
                     else if (type !== 'int' && type !== 'double') defaultVal = null;
                     const arr = new Array(size).fill(defaultVal);
@@ -1120,14 +1191,13 @@ class Runtime10thEnvironment {
                     for (let r = 0; r < rows; r++) {
                         grid.push(new Array(cols).fill(0));
                     }
-                    return {
-                        _isMatrix: true,
-                        type: `${type}[,]`,
-                        rows,
-                        cols,
-                        grid,
-                        activeCell: null
-                    };
+                    grid._isMatrix = true;
+                    grid.type = `${type}[,]`;
+                    grid.rows = rows;
+                    grid.cols = cols;
+                    grid.grid = grid;
+                    grid.activeCell = null;
+                    return grid;
                 }
             }
         }
@@ -1156,10 +1226,15 @@ class Runtime10thEnvironment {
             return parts.map(p => this.evalExpr(p, scopeVars, line));
         }
 
+        if (expr === 'System.in') return 'System.in';
+
         // new ClassName(args)
         const newObjMatch = expr.match(/^new\s+([A-Za-z0-9_]+)\s*\((.*)\)$/);
         if (newObjMatch) {
             const className = newObjMatch[1];
+            if (className === 'Scanner') {
+                return this.instantiateClass('Scanner', [], line);
+            }
             const rawArgs = newObjMatch[2].trim();
             const args = rawArgs.length > 0 ? this.splitArgs(rawArgs).map(a => this.evalExpr(a, scopeVars, line)) : [];
             return this.instantiateClass(className, args, line);
@@ -1170,12 +1245,43 @@ class Runtime10thEnvironment {
             return this.evalMathCall(expr, scopeVars, line);
         }
 
-        // char פונקציות
-        if (expr.startsWith('char.IsDigit') || expr.startsWith('char.IsLetter')) {
+        // char / Character פונקציות ב-C# וב-Java
+        if (expr.startsWith('char.IsDigit') || expr.startsWith('Character.isDigit')) {
             const arg = this.evalExpr(expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim(), scopeVars, line);
             const ch = String(arg)[0] || '';
-            if (expr.startsWith('char.IsDigit')) return /[0-9]/.test(ch);
-            if (expr.startsWith('char.IsLetter')) return /[a-zA-Zא-ת]/.test(ch);
+            return /[0-9]/.test(ch);
+        }
+        if (expr.startsWith('char.IsLetter') || expr.startsWith('Character.isLetter')) {
+            const arg = this.evalExpr(expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim(), scopeVars, line);
+            const ch = String(arg)[0] || '';
+            return /[a-zA-Zא-ת]/.test(ch);
+        }
+        if (expr.startsWith('Character.toUpperCase(')) {
+            const arg = this.evalExpr(expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim(), scopeVars, line);
+            return String(arg).toUpperCase();
+        }
+        if (expr.startsWith('Character.toLowerCase(')) {
+            const arg = this.evalExpr(expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim(), scopeVars, line);
+            return String(arg).toLowerCase();
+        }
+
+        // Java str.charAt(index)
+        const charAtMatch = expr.match(/^([A-Za-z0-9_\[\], \.]+)\.charAt\s*\(([^)]+)\)$/);
+        if (charAtMatch) {
+            const target = this.evalExpr(charAtMatch[1].trim(), scopeVars, line);
+            const idx = this.evalExpr(charAtMatch[2].trim(), scopeVars, line);
+            if (typeof target !== 'string') throw { message: `קריאה ל-charAt על טיפוס שאינו מחרוזת: ${charAtMatch[1]}`, line, file: this.currentFile };
+            if (idx < 0 || idx >= target.length) throw { message: `חריגה מגבולות המחרוזת ב-charAt: אינדקס [${idx}] במחרוזת באורך ${target.length}`, line, file: this.currentFile };
+            return target[idx];
+        }
+
+        // Java str.equals(other) / str.equalsIgnoreCase(other)
+        const equalsMatch = expr.match(/^([A-Za-z0-9_\[\], \.]+)\.(equals|equalsIgnoreCase)\s*\(([^)]+)\)$/);
+        if (equalsMatch) {
+            const target = this.evalExpr(equalsMatch[1].trim(), scopeVars, line);
+            const other = this.evalExpr(equalsMatch[3].trim(), scopeVars, line);
+            if (equalsMatch[2] === 'equals') return String(target) === String(other);
+            return String(target).toLowerCase() === String(other).toLowerCase();
         }
 
         // קריאה למתודת מחרוזת או מאפיין: str.Length, str.length, arr.Length, arr.length וכו'
@@ -1195,7 +1301,12 @@ class Runtime10thEnvironment {
 
             if (methodLower === 'length') {
                 if (targetVal === null || targetVal === undefined) throw { message: `ניסיון לקרוא Length של ערך ריק או null ב-${target}`, line, file: this.currentFile };
-                if (targetVal && targetVal._isMatrix) return targetVal.rows * targetVal.cols;
+                if (targetVal && targetVal._isMatrix) {
+                    if (method === 'length' || (targetVal.type && targetVal.type.includes('[][]'))) {
+                        return targetVal.rows;
+                    }
+                    return targetVal.rows * targetVal.cols;
+                }
                 return targetVal.length !== undefined ? targetVal.length : 0;
             }
 
@@ -1204,8 +1315,14 @@ class Runtime10thEnvironment {
 
             if (methodLower === 'substring') {
                 const start = args[0] || 0;
-                const lenArg = args[1];
-                if (lenArg !== undefined) return strVal.substr(start, lenArg);
+                const second = args[1];
+                if (second !== undefined) {
+                    // Java substring(beginIndex, endIndex) vs C# Substring(startIndex, length)
+                    if (method === 'substring' || (second >= start && second <= strVal.length)) {
+                        return strVal.substring(start, second);
+                    }
+                    return strVal.substr(start, second);
+                }
                 return strVal.substring(start);
             }
             if (methodLower === 'indexof') {
@@ -1237,12 +1354,25 @@ class Runtime10thEnvironment {
                 const r = this.evalExpr(indexedAccess.rowExpr, scopeVars, line);
                 const c = this.evalExpr(indexedAccess.colExpr, scopeVars, line);
                 const matObj = this.resolveVariable(matName, scopeVars);
-                if (!matObj || !matObj.grid) throw { message: `גישה למטריצה שאינה קיימת: ${matName}`, line, file: this.currentFile };
-                if (r < 0 || r >= matObj.rows || c < 0 || c >= matObj.cols) {
-                    throw { message: `חריגה מגבולות המטריצה [${r}, ${c}] במטריצה בגודל ${matObj.rows}x${matObj.cols}`, line, file: this.currentFile };
+                if (matObj && matObj.grid) {
+                    if (r < 0 || r >= matObj.rows || c < 0 || c >= matObj.cols) {
+                        throw { message: `חריגה מגבולות המטריצה [${r}, ${c}] במטריצה בגודל ${matObj.rows}x${matObj.cols}`, line, file: this.currentFile };
+                    }
+                    matObj.activeCell = { r, c };
+                    return matObj.grid[r][c];
                 }
-                matObj.activeCell = { r, c };
-                return matObj.grid[r][c];
+                if (Array.isArray(matObj)) {
+                    if (r < 0 || r >= matObj.length) {
+                        throw { message: `חריגה מגבולות המטריצה: שורה [${r}] במטריצה בעלת ${matObj.length} שורות`, line, file: this.currentFile };
+                    }
+                    const rowArr = matObj[r];
+                    if (!Array.isArray(rowArr) || c < 0 || c >= rowArr.length) {
+                        throw { message: `חריגה מגבולות המטריצה: [${r}][${c}]`, line, file: this.currentFile };
+                    }
+                    matObj._activeCell = { r, c };
+                    return rowArr[c];
+                }
+                throw { message: `גישה למטריצה שאינה קיימת: ${matName}`, line, file: this.currentFile };
             } else if (indexedAccess.type === '1D') {
                 const name = indexedAccess.target;
                 const idx = this.evalExpr(indexedAccess.indexExpr, scopeVars, line);
@@ -1314,6 +1444,22 @@ class Runtime10thEnvironment {
 
                 // מתודה של מופע (instance method): eval the target object first
                 const targetVal = this.evalExpr(targetExpr, scopeVars, line);
+                if (targetVal && targetVal._isScanner) {
+                    const rawVal = this.inputQueue.length > 0 ? this.inputQueue.shift() : '0';
+                    this.recordFrame(line, `קליטת קלט מהמשתמש (${targetExpr}.${methodName}): "${rawVal}"`);
+                    if (methodName === 'nextInt') {
+                        const parsed = parseInt(rawVal, 10);
+                        return isNaN(parsed) ? 0 : parsed;
+                    }
+                    if (methodName === 'nextDouble') {
+                        const parsed = parseFloat(rawVal);
+                        return isNaN(parsed) ? 0.0 : parsed;
+                    }
+                    if (methodName === 'next' || methodName === 'nextLine') {
+                        return String(rawVal);
+                    }
+                    return rawVal;
+                }
                 if (targetVal && typeof targetVal === 'object' && targetVal._heapId) {
                     const cls = this.ast.classes.find(c => c.name === targetVal.className);
                     if (cls) {
@@ -1340,6 +1486,9 @@ class Runtime10thEnvironment {
                 return targetVal.length;
             }
             if (targetVal && targetVal._isMatrix && (field === 'Length' || field === 'length')) {
+                if (field === 'length' || (targetVal.type && targetVal.type.includes('[][]'))) {
+                    return targetVal.rows;
+                }
                 return targetVal.rows * targetVal.cols;
             }
         }
@@ -1381,17 +1530,29 @@ class Runtime10thEnvironment {
 
         const rowCount = rows.length;
         const colCount = rows.length > 0 ? rows[0].length : 0;
-        return {
-            _isMatrix: true,
-            type: 'int[,]',
-            rows: rowCount,
-            cols: colCount,
-            grid: rows,
-            activeCell: null
-        };
+        rows._isMatrix = true;
+        rows.type = 'int[,]';
+        rows.rows = rowCount;
+        rows.cols = colCount;
+        rows.grid = rows;
+        rows.activeCell = null;
+        return rows;
     }
 
     instantiateClass(className, args, line) {
+        if (className === 'Scanner') {
+            const heapId = this.nextHeapId++;
+            const scannerInstance = {
+                _heapId: heapId,
+                _isScanner: true,
+                className: 'Scanner',
+                fields: {}
+            };
+            this.heap.set(heapId, scannerInstance);
+            this.recordFrame(line, `יצירת אובייקט Scanner לקליטת נתונים (System.in)`);
+            return scannerInstance;
+        }
+
         // מציאת הגדרת המחלקה
         const cls = this.ast.classes.find(c => c.name === className);
         if (!cls) {
@@ -1465,18 +1626,19 @@ class Runtime10thEnvironment {
     evalMathCall(expr, scopeVars, line) {
         const m = expr.match(/^Math\.([A-Za-z0-9_]+)\s*\((.*)\)$/);
         if (!m) return 0;
-        const fn = m[1];
+        const fn = m[1].toLowerCase();
         const args = m[2].trim().length > 0 ? this.splitArgs(m[2]).map(a => this.evalExpr(a, scopeVars, line)) : [];
 
         switch (fn) {
-            case 'Max': return Math.max(args[0], args[1]);
-            case 'Min': return Math.min(args[0], args[1]);
-            case 'Abs': return Math.abs(args[0]);
-            case 'Pow': return Math.pow(args[0], args[1]);
-            case 'Sqrt': return Math.sqrt(args[0]);
-            case 'Floor': return Math.floor(args[0]);
-            case 'Ceiling': return Math.ceil(args[0]);
-            case 'Round': return Math.round(args[0]);
+            case 'max': return Math.max(args[0], args[1]);
+            case 'min': return Math.min(args[0], args[1]);
+            case 'abs': return Math.abs(args[0]);
+            case 'pow': return Math.pow(args[0], args[1]);
+            case 'sqrt': return Math.sqrt(args[0]);
+            case 'floor': return Math.floor(args[0]);
+            case 'ceil':
+            case 'ceiling': return Math.ceil(args[0]);
+            case 'round': return Math.round(args[0]);
             default: return 0;
         }
     }
@@ -1646,7 +1808,60 @@ class Runtime10thEnvironment {
         return parts;
     }
 
+    splitDoubleBracket(str) {
+        // מחפש תבנית target[expr1][expr2] ב-Java
+        const firstOpen = str.indexOf('[');
+        if (firstOpen <= 0) return null;
+        const target = str.slice(0, firstOpen).trim();
+        let depth = 0;
+        let firstClose = -1;
+        for (let i = firstOpen; i < str.length; i++) {
+            if (str[i] === '[') depth++;
+            else if (str[i] === ']') {
+                depth--;
+                if (depth === 0) {
+                    firstClose = i;
+                    break;
+                }
+            }
+        }
+        if (firstClose === -1 || firstClose >= str.length - 2) return null;
+        if (str[firstClose + 1] !== '[') return null;
+        const secondOpen = firstClose + 1;
+        let secondClose = -1;
+        depth = 0;
+        for (let i = secondOpen; i < str.length; i++) {
+            if (str[i] === '[') depth++;
+            else if (str[i] === ']') {
+                depth--;
+                if (depth === 0) {
+                    secondClose = i;
+                    break;
+                }
+            }
+        }
+        if (secondClose === str.length - 1) {
+            return {
+                target: target,
+                rowExpr: str.slice(firstOpen + 1, firstClose).trim(),
+                colExpr: str.slice(secondOpen + 1, secondClose).trim()
+            };
+        }
+        return null;
+    }
+
     parseIndexedAccess(str) {
+        // בדיקה לתחביר Java 2D: target[r][c]
+        const doubleMatch = this.splitDoubleBracket(str);
+        if (doubleMatch) {
+            return {
+                type: '2D',
+                target: doubleMatch.target,
+                rowExpr: doubleMatch.rowExpr,
+                colExpr: doubleMatch.colExpr
+            };
+        }
+
         const bracket = this.splitTopLevelBracket(str);
         if (!bracket) return null;
         const parts = this.splitTopLevelCommas(bracket.inside);
@@ -1843,21 +2058,6 @@ class Runtime10thEnvironment {
             currentScope[k] = this.deepCloneVal(v);
         }
 
-        // הוספת איברי מערכים ומטריצות בודדים למעקב (לדוגמה: arr[0], arr[1], ...)
-        for (const [varName, val] of Object.entries(rawScope)) {
-            if (Array.isArray(val) && val.length <= 20) {
-                for (let k = 0; k < val.length; k++) {
-                    currentScope[`${varName}[${k}]`] = this.deepCloneVal(val[k]);
-                }
-            } else if (val && val._isMatrix && (val.rows * val.cols <= 25)) {
-                for (let r = 0; r < val.rows; r++) {
-                    for (let c = 0; c < val.cols; c++) {
-                        currentScope[`${varName}[${r}, ${c}]`] = this.deepCloneVal(val.grid[r][c]);
-                    }
-                }
-            }
-        }
-
         // הערכת ביטויי אינדקס מקוננים ודינמיים מהקוד (לדוגמה: arr[i], votes[i], candidate[votes[i] - 1])
         if (this.trackedExpressions && this.trackedExpressions.length > 0) {
             for (const expr of this.trackedExpressions) {
@@ -1914,7 +2114,23 @@ class Runtime10thEnvironment {
 
         // 3. זיהוי מערכים חד-ממדיים, מטריצות, מחרוזות ומשתנים פעילים
         for (const [varName, val] of Object.entries(currentScope)) {
-            if (Array.isArray(val)) {
+            if (val && val._isMatrix) {
+                matrices2D.push({
+                    name: varName,
+                    rows: val.rows,
+                    cols: val.cols,
+                    grid: (val.grid || val).map(row => [...row]),
+                    activeCell: val.activeCell ? { ...val.activeCell } : (val._activeCell ? { ...val._activeCell } : null)
+                });
+            } else if (Array.isArray(val) && val.length > 0 && Array.isArray(val[0])) {
+                matrices2D.push({
+                    name: varName,
+                    rows: val.length,
+                    cols: val[0].length,
+                    grid: val.map(row => Array.isArray(row) ? [...row] : []),
+                    activeCell: val._activeCell ? { ...val._activeCell } : null
+                });
+            } else if (Array.isArray(val)) {
                 let elemType = val._elemType;
                 if (!elemType) {
                     const firstNonNull = val.find(x => x !== null && x !== undefined);
@@ -1954,14 +2170,6 @@ class Runtime10thEnvironment {
                     elemType: elemType,
                     length: val.length,
                     items: val.map(item => (item && typeof item === 'object') ? JSON.parse(JSON.stringify(item)) : item)
-                });
-            } else if (val && val._isMatrix) {
-                matrices2D.push({
-                    name: varName,
-                    rows: val.rows,
-                    cols: val.cols,
-                    grid: val.grid.map(row => [...row]),
-                    activeCell: val.activeCell ? { ...val.activeCell } : null
                 });
             } else if (typeof val === 'string' && val.length > 0) {
                 strings.push({

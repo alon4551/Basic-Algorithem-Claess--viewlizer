@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>סטודיו ומפרש יסודות מדעי המחשב ב-C# | אלון שרייבמן</title>
-    <link rel="stylesheet" href="css/style.css?v=1.3">
+    <title>סטודיו ומפרש יסודות מדעי המחשב — C# & Java | אלון שרייבמן</title>
+    <link rel="stylesheet" href="css/style.css?v=1.4">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>">
 </head>
 <body>
@@ -15,7 +15,7 @@
             <div class="brand-title">
                 <div class="brand-icon">💻</div>
                 <div>
-                    <h1>סטודיו יסודות מדעי המחשב ב-C# (10th Grade CS Studio)</h1>
+                    <h1>סטודיו יסודות מדעי המחשב — C# & Java (10th Grade CS Studio)</h1>
                     <p>מרכז מדעי המחשב — אלון שרייבמן | תיכון מקיף דוד טוביהו (שכבת י')</p>
                 </div>
             </div>
@@ -50,8 +50,22 @@
         </div>
     </header>
 
-    <!-- סרגל עליון: בחירת דוגמה ופרסטים -->
+    <!-- סרגל עליון: בחירת שפה, דוגמה ופרסטים -->
     <div class="quick-setup-bar">
+        <div class="quick-setup-group lang-selector-group">
+            <span class="quick-setup-label">🌐 שפה:</span>
+            <div class="lang-switch-pills" id="lang-switch-pills">
+                <button type="button" class="btn-lang-pill active" id="btn-lang-cs" data-lang="csharp" title="תכנות בשפת C#">
+                    <span class="lang-pill-dot dot-cs"></span>
+                    <span>C#</span>
+                </button>
+                <button type="button" class="btn-lang-pill" id="btn-lang-java" data-lang="java" title="תכנות בשפת Java">
+                    <span class="lang-pill-dot dot-java"></span>
+                    <span>Java</span>
+                </button>
+            </div>
+        </div>
+
         <div class="quick-setup-group">
             <span class="quick-setup-label">📚 דוגמה לבדיקה מהירה:</span>
             <select id="preset-select" class="preset-select">
@@ -61,6 +75,7 @@
                 <option value="string_palindrome">3. מחרוזות ותווים: בדיקת פלינדרום</option>
                 <option value="math_digits_sum">4. פונקציות ו-Math: פירוק מספר לספרות וסכום</option>
                 <option value="oop_students">5. מחלקות ועצמים: מחלקת תלמיד ומערך עצמים</option>
+                <option value="counting_array">6. מערך מונים: ספירת קולות מועמדים</option>
             </select>
         </div>
 

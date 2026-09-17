@@ -219,6 +219,65 @@ body {
     color: var(--primary);
 }
 
+/* בורר שפה מהיר (C# / Java Pills) */
+.lang-switch-pills {
+    display: inline-flex;
+    background: #e2e8f0;
+    padding: 3px;
+    border-radius: 8px;
+    gap: 3px;
+}
+
+.btn-lang-pill {
+    padding: 0.25rem 0.75rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    background: transparent;
+    color: #64748b;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    direction: ltr;
+}
+
+.btn-lang-pill:hover {
+    color: #1e293b;
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.btn-lang-pill.active {
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.btn-lang-pill.active#btn-lang-cs {
+    color: #7c3aed;
+}
+
+.btn-lang-pill.active#btn-lang-java {
+    color: #ea580c;
+}
+
+.lang-pill-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.dot-cs {
+    background: #8b5cf6;
+}
+
+.dot-java {
+    background: #f97316;
+}
+
 /* חלוקה ראשית לעמודות: עורך משמאל, במה מימין */
 .main-layout {
     display: flex;
