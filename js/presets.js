@@ -501,6 +501,20 @@ function getPresets10th(lang) {
     return lang === 'java' ? PRESETS_10TH_JAVA : PRESETS_10TH_CS;
 }
 
+if (typeof window !== 'undefined') {
+    window.PRESETS_10TH_CS = PRESETS_10TH_CS;
+    window.PRESETS_10TH_JAVA = PRESETS_10TH_JAVA;
+    window.PRESETS_10TH = PRESETS_10TH;
+    window.getPresets10th = getPresets10th;
+}
+
+if (typeof globalThis !== 'undefined') {
+    globalThis.PRESETS_10TH_CS = PRESETS_10TH_CS;
+    globalThis.PRESETS_10TH_JAVA = PRESETS_10TH_JAVA;
+    globalThis.PRESETS_10TH = PRESETS_10TH;
+    globalThis.getPresets10th = getPresets10th;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         PRESETS_10TH,

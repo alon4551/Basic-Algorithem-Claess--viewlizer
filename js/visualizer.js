@@ -21,7 +21,7 @@ class Visualizer10thApp {
         // ניהול שפה וקבצים בלשוניות (Class Tabs)
         this.currentLang = 'csharp'; // 'csharp' | 'java'
         const mainFile = this.getMainFileName();
-        const initialPresets = typeof getPresets10th === 'function' ? getPresets10th('csharp') : PRESETS_10TH;
+        const initialPresets = this.getPresetsForCurrentLang();
         const initialCode = (initialPresets['empty_main'] && initialPresets['empty_main'].files[mainFile]) || '';
         this.editorFiles = {
             [mainFile]: {
@@ -36,6 +36,24 @@ class Visualizer10thApp {
 
     getMainFileName() {
         return this.currentLang === 'java' ? 'Main.java' : 'Program.cs';
+    }
+
+    getPresetsForCurrentLang() {
+        const lang = this.currentLang || 'csharp';
+        if (typeof window !== 'undefined' && typeof window.getPresets10th === 'function') {
+            return window.getPresets10th(lang);
+        }
+        if (typeof getPresets10th === 'function') {
+            return getPresets10th(lang);
+        }
+        if (lang === 'java') {
+            if (typeof PRESETS_10TH_JAVA !== 'undefined') return PRESETS_10TH_JAVA;
+            if (typeof window !== 'undefined' && window.PRESETS_10TH_JAVA) return window.PRESETS_10TH_JAVA;
+            if (typeof globalThis !== 'undefined' && globalThis.PRESETS_10TH_JAVA) return globalThis.PRESETS_10TH_JAVA;
+        }
+        if (typeof PRESETS_10TH_CS !== 'undefined') return PRESETS_10TH_CS;
+        if (typeof PRESETS_10TH !== 'undefined') return PRESETS_10TH;
+        return {};
     }
 
     init() {
@@ -180,22 +198,26 @@ class Visualizer10thApp {
     }
 
     setLanguage(lang) {
-        if (this.currentLang === lang) return;
+        if (!lang) return;
         this.currentLang = lang;
 
-        if (this.dom.btnLangCs && this.dom.btnLangJava) {
-            this.dom.btnLangCs.classList.toggle('active', lang === 'csharp');
-            this.dom.btnLangJava.classList.toggle('active', lang === 'java');
-        }
+        const btnCs = document.getElementById('btn-lang-cs');
+        const btnJava = document.getElementById('btn-lang-java');
+        if (btnCs) btnCs.classList.toggle('active', lang === 'csharp');
+        if (btnJava) btnJava.classList.toggle('active', lang === 'java');
 
-        this.updatePresetsDropdown();
         const currentPresetId = (this.dom.presetSelect && this.dom.presetSelect.value) || 'empty_main';
+        this.updatePresetsDropdown();
+        if (this.dom.presetSelect) {
+            this.dom.presetSelect.value = currentPresetId;
+        }
         this.loadPreset(currentPresetId);
+        this.setStatus('info', `שפת הסטודיו הוחלפה ל-${lang === 'java' ? 'Java' : 'C#'}`);
     }
 
     updatePresetsDropdown() {
         if (!this.dom.presetSelect) return;
-        const presets = typeof getPresets10th === 'function' ? getPresets10th(this.currentLang) : PRESETS_10TH;
+        const presets = this.getPresetsForCurrentLang();
         const currentValue = this.dom.presetSelect.value || 'empty_main';
 
         this.dom.presetSelect.innerHTML = '';
@@ -209,12 +231,28 @@ class Visualizer10thApp {
     }
 
     bindEvents() {
-        // בורר שפה (C# / Java)
+        // בורר שפה (C# / Java) - האזנה ישירה, האזנה למיכל ו-onclick
+        const langContainer = document.getElementById('lang-switch-pills');
+        if (langContainer) {
+            langContainer.addEventListener('click', (e) => {
+                const btn = e.target.closest('.btn-lang-pill');
+                if (btn) {
+                    const targetLang = btn.dataset.lang || (btn.id === 'btn-lang-java' ? 'java' : 'csharp');
+                    this.setLanguage(targetLang);
+                }
+            });
+        }
         if (this.dom.btnLangCs) {
-            this.dom.btnLangCs.addEventListener('click', () => this.setLanguage('csharp'));
+            this.dom.btnLangCs.onclick = (e) => {
+                e.preventDefault();
+                this.setLanguage('csharp');
+            };
         }
         if (this.dom.btnLangJava) {
-            this.dom.btnLangJava.addEventListener('click', () => this.setLanguage('java'));
+            this.dom.btnLangJava.onclick = (e) => {
+                e.preventDefault();
+                this.setLanguage('java');
+            };
         }
 
         // בורר מצבים עליון
@@ -868,7 +906,7 @@ class Visualizer10thApp {
     }
 
     loadPreset(presetId) {
-        const presets = typeof getPresets10th === 'function' ? getPresets10th(this.currentLang) : PRESETS_10TH;
+        const presets = this.getPresetsForCurrentLang();
         const preset = presets[presetId] || presets['empty_main'];
         if (!preset) return;
 
