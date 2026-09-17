@@ -24,6 +24,7 @@ class Visualizer10thApp {
             }
         };
         this.activeFileName = 'Program.cs';
+        this.recompileTimer = null;
         this.dom = {};
     }
 
@@ -33,6 +34,7 @@ class Visualizer10thApp {
         this.setupAutocomplete();
         this.renderTabs();
         this.setupResizer();
+        this.setupStageVerticalResizer();
         this.setupCardResizers();
         this.loadPreset('empty_main');
     }
@@ -114,17 +116,26 @@ class Visualizer10thApp {
         this.dom.heapCountBadge = document.getElementById('heap-count-badge');
         this.dom.heapContainer = document.getElementById('heap-container');
 
-        this.dom.cardVariables = document.getElementById('card-variables');
+        // כרטיסיית בדיקה ממוזערת עם לשוניות (משתנים, קונסול, מחסנית)
+        this.dom.cardInspectionTabs = document.getElementById('card-inspection-tabs');
+        this.dom.stageVerticalResizer = document.getElementById('stage-vertical-resizer');
+        this.dom.tabBtnsInsp = document.querySelectorAll('.tab-btn-insp');
+        this.dom.tabPanesInsp = document.querySelectorAll('.tab-pane-insp');
+        this.dom.tabBtnVars = document.getElementById('tab-btn-vars');
+        this.dom.tabBtnConsole = document.getElementById('tab-btn-console');
+        this.dom.tabBtnStack = document.getElementById('tab-btn-stack');
+        this.dom.tabPaneVars = document.getElementById('tab-pane-vars');
+        this.dom.tabPaneConsole = document.getElementById('tab-pane-console');
+        this.dom.tabPaneStack = document.getElementById('tab-pane-stack');
+
         this.dom.varsCountBadge = document.getElementById('vars-count-badge');
         this.dom.variablesChipsGrid = document.getElementById('variables-chips-grid');
         this.dom.variablesTable = document.getElementById('variables-table');
         this.dom.variablesTbody = document.getElementById('variables-tbody');
 
-        this.dom.cardCallstack = document.getElementById('card-callstack');
         this.dom.stackCountBadge = document.getElementById('stack-count-badge');
         this.dom.callStackList = document.getElementById('call-stack-list');
 
-        this.dom.cardConsole = document.getElementById('card-console');
         this.dom.consoleCountBadge = document.getElementById('console-count-badge');
         this.dom.consoleOutput = document.getElementById('console-output');
         this.dom.btnClearConsole = document.getElementById('btn-clear-console');
@@ -134,6 +145,9 @@ class Visualizer10thApp {
         this.dom.matrixCard = this.dom.cardMatrices;
         this.dom.stringCard = this.dom.cardStrings;
         this.dom.heapCard = this.dom.cardHeap;
+        this.dom.cardVariables = this.dom.tabPaneVars;
+        this.dom.cardCallstack = this.dom.tabPaneStack;
+        this.dom.cardConsole = this.dom.tabPaneConsole;
 
         // טבלת מעקב ובחירת משתנים
         this.dom.traceTable = document.getElementById('trace-table');
@@ -196,7 +210,7 @@ class Visualizer10thApp {
         // כפתורי מזעור/הרחבה לכל הכרטיסיות (.view-card ו-.stage-card)
         document.querySelectorAll('.btn-card-toggle').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const card = e.target.closest('.view-card') || e.target.closest('.stage-card');
+                const card = e.target.closest('.view-card') || e.target.closest('.stage-card') || e.target.closest('.inspection-tabs-card');
                 if (card && btn.id !== 'btn-close-init-card') {
                     card.classList.toggle('collapsed');
                     btn.textContent = card.classList.contains('collapsed') ? '➕' : '➖';
@@ -320,8 +334,18 @@ class Visualizer10thApp {
                     this.dom.tabBtnsMain.forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     const view = btn.dataset.view;
-                    if (this.dom.paneMemoryView) this.dom.paneMemoryView.style.display = (view === 'memory') ? '' : 'none';
-                    if (this.dom.paneTraceView) this.dom.paneTraceView.style.display = (view === 'trace') ? '' : 'none';
+                    if (this.dom.paneMemoryView) {
+                        this.dom.paneMemoryView.classList.toggle('active', view === 'memory');
+                        this.dom.paneMemoryView.style.display = (view === 'memory') ? 'block' : 'none';
+                    }
+                    if (this.dom.paneTraceView) {
+                        this.dom.paneTraceView.classList.toggle('active', view === 'trace');
+                        this.dom.paneTraceView.style.display = (view === 'trace') ? 'block' : 'none';
+                        if (view === 'trace') {
+                            this.renderTraceTable();
+                            this.highlightTraceTableRow(this.currentFrameIdx);
+                        }
+                    }
                 });
             });
         }
@@ -356,19 +380,12 @@ class Visualizer10thApp {
             });
         }
 
-        // לשוניות בדיקה ממוזערות (משתנים, מחסנית, פלט)
+        // לשוניות כרטיסיית בדיקה תחתונה (משתנים, קונסול, מחסנית)
         if (this.dom.tabBtnsInsp) {
             this.dom.tabBtnsInsp.forEach(btn => {
                 btn.addEventListener('click', () => {
-                    this.dom.tabBtnsInsp.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
                     const tab = btn.dataset.tab;
-                    document.querySelectorAll('.insp-pane').forEach(p => p.style.display = 'none');
-                    const activePane = document.getElementById(`pane-${tab}`);
-                    if (activePane) activePane.style.display = '';
-                    if (this.dom.btnClearConsole) {
-                        this.dom.btnClearConsole.style.display = (tab === 'console') ? '' : 'none';
-                    }
+                    this.switchInspectionTab(tab);
                 });
             });
         }
@@ -376,11 +393,18 @@ class Visualizer10thApp {
         // כפתור הוספת מחלקה חדשה
         this.dom.btnAddTab.addEventListener('click', () => this.promptAddClass());
 
-        // עריכת קוד
+        // עריכת קוד (עם השהיה קלה למניעת שבירת זרימת ההקלדה והחלפת טאבים)
         this.dom.codeTextarea.addEventListener('input', () => {
-            this.editorFiles[this.activeFileName].code = this.dom.codeTextarea.value;
+            if (this.editorFiles[this.activeFileName]) {
+                this.editorFiles[this.activeFileName].code = this.dom.codeTextarea.value;
+            }
             this.updateLineNumbers();
-            this.recompile();
+            if (this.recompileTimer) {
+                clearTimeout(this.recompileTimer);
+            }
+            this.recompileTimer = setTimeout(() => {
+                this.recompile(false);
+            }, 250);
         });
 
         this.dom.codeTextarea.addEventListener('scroll', () => {
@@ -502,12 +526,14 @@ class Visualizer10thApp {
             let target = null;
 
             const onStart = (clientY) => {
-                const card = handle.closest('.view-card') || handle.closest('.stage-card') || handle.closest('.main-view-pane');
+                const card = handle.closest('.view-card') || handle.closest('.stage-card') || handle.closest('.main-view-pane') || handle.closest('.inspection-tabs-card');
                 if (card) {
                     if (handle.classList.contains('trace-resize-handle')) {
                         target = card.querySelector('.trace-table-wrapper');
                     } else if (handle.classList.contains('drawer-resize-handle')) {
                         target = card.querySelector('#flexible-init-body');
+                    } else if (card.classList.contains('inspection-tabs-card')) {
+                        target = card.querySelector('.inspection-body');
                     } else if (card.id === 'card-console') {
                         target = card.querySelector('.console-box');
                     } else {
@@ -578,10 +604,11 @@ class Visualizer10thApp {
 
             // לחיצה כפולה לאיפוס גובה לברירת המחדל
             handle.addEventListener('dblclick', () => {
-                const card = handle.closest('.view-card') || handle.closest('.stage-card') || handle.closest('.main-view-pane');
+                const card = handle.closest('.view-card') || handle.closest('.stage-card') || handle.closest('.main-view-pane') || handle.closest('.inspection-tabs-card');
                 if (card) {
                     const el = card.querySelector('.trace-table-wrapper') || 
                                card.querySelector('#flexible-init-body') || 
+                               card.querySelector('.inspection-body') || 
                                card.querySelector('.console-box') || 
                                card.querySelector('.view-card-body') || 
                                card.querySelector('.card-body');
@@ -596,7 +623,7 @@ class Visualizer10thApp {
         // 2. כפתור מקסום/שחזור חלונית (Maximize / Restore)
         document.querySelectorAll('.btn-card-stretch').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const card = e.target.closest('.view-card');
+                const card = e.target.closest('.view-card') || e.target.closest('.inspection-tabs-card');
                 if (card) {
                     const isMaximized = card.classList.toggle('maximized');
                     btn.textContent = isMaximized ? '🗗' : '⛶';
@@ -609,11 +636,129 @@ class Visualizer10thApp {
         });
     }
 
+    setupStageVerticalResizer() {
+        const stageResizer = this.dom.stageVerticalResizer;
+        const stageCard = this.dom.cardMainStage;
+        const inspectionCard = this.dom.cardInspectionTabs;
+        if (!stageResizer || !stageCard) return;
+
+        const visualPanel = document.querySelector('.visual-panel');
+
+        // שחזור גובה שמור במידה וקיים
+        try {
+            const savedHeight = localStorage.getItem('agy_10th_stage_height');
+            if (savedHeight) {
+                const h = parseFloat(savedHeight);
+                const panelH = visualPanel ? visualPanel.clientHeight : 800;
+                const maxH = Math.max(220, panelH - 160);
+                if (!isNaN(h) && h >= 180 && h <= maxH) {
+                    stageCard.style.height = `${h}px`;
+                    stageCard.style.flex = `0 0 ${h}px`;
+                }
+            }
+        } catch (e) {}
+
+        let isDraggingVert = false;
+        let startY = 0;
+        let startHeight = 0;
+
+        const onPointerMoveVert = (e) => {
+            if (!isDraggingVert) return;
+            if (e.buttons === 0) {
+                onPointerUpVert(e);
+                return;
+            }
+            const deltaY = e.clientY - startY;
+            const currentPanel = document.querySelector('.visual-panel');
+            const currentPanelH = currentPanel ? currentPanel.clientHeight : 800;
+
+            const minHeight = 180;
+            // השארת לפחות 130 פיקסלים עבור כרטיסיות הבדיקה התחתונות
+            const maxHeight = Math.max(minHeight + 60, currentPanelH - 150);
+            const newHeight = Math.max(minHeight, Math.min(maxHeight, Math.round(startHeight + deltaY)));
+
+            stageCard.style.height = `${newHeight}px`;
+            stageCard.style.flex = `0 0 ${newHeight}px`;
+            try {
+                localStorage.setItem('agy_10th_stage_height', newHeight);
+            } catch (err) {}
+        };
+
+        const onPointerUpVert = (e) => {
+            if (!isDraggingVert) return;
+            isDraggingVert = false;
+            stageResizer.classList.remove('is-dragging');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            if (e && e.pointerId != null) {
+                try { stageResizer.releasePointerCapture(e.pointerId); } catch (_) {}
+            }
+
+            window.removeEventListener('pointermove', onPointerMoveVert);
+            window.removeEventListener('pointerup', onPointerUpVert);
+            window.removeEventListener('pointercancel', onPointerUpVert);
+        };
+
+        const onPointerDownVert = (e) => {
+            if (e.button && e.button !== 0) return;
+            isDraggingVert = true;
+            startY = e.clientY;
+            startHeight = stageCard.getBoundingClientRect().height;
+
+            stageResizer.classList.add('is-dragging');
+            document.body.style.cursor = 'row-resize';
+            document.body.style.userSelect = 'none';
+            try { stageResizer.setPointerCapture(e.pointerId); } catch (_) {}
+
+            window.addEventListener('pointermove', onPointerMoveVert, { passive: false });
+            window.addEventListener('pointerup', onPointerUpVert);
+            window.addEventListener('pointercancel', onPointerUpVert);
+
+            e.preventDefault();
+        };
+
+        stageResizer.addEventListener('pointerdown', onPointerDownVert);
+
+        // לחיצה כפולה לאיפוס חלוקה לברירת המחדל
+        stageResizer.addEventListener('dblclick', () => {
+            stageCard.style.height = '';
+            stageCard.style.flex = '';
+            if (inspectionCard) {
+                inspectionCard.style.height = '';
+                inspectionCard.style.flex = '';
+            }
+            try {
+                localStorage.removeItem('agy_10th_stage_height');
+            } catch (err) {}
+        });
+    }
+
+    switchInspectionTab(tabName) {
+        this.activeInspectionTab = tabName;
+        if (this.dom.tabBtnsInsp) {
+            this.dom.tabBtnsInsp.forEach(b => {
+                b.classList.toggle('active', b.dataset.tab === tabName);
+            });
+        }
+        if (this.dom.tabPanesInsp) {
+            this.dom.tabPanesInsp.forEach(p => {
+                p.classList.toggle('active', p.id === `tab-pane-${tabName}`);
+            });
+        }
+        if (this.dom.btnClearConsole) {
+            this.dom.btnClearConsole.style.display = (tabName === 'console') ? '' : 'none';
+        }
+        if (tabName === 'console' && this.dom.tabBtnConsole) {
+            this.dom.tabBtnConsole.classList.remove('tab-has-new');
+        }
+    }
+
     loadPreset(presetId) {
         const preset = PRESETS_10TH[presetId];
         if (!preset) return;
 
         this.pause();
+        this.selectedTraceVars.clear();
         this.editorFiles = {};
         for (const [fName, code] of Object.entries(preset.files)) {
             this.editorFiles[fName] = { name: fName, code: code };
@@ -658,9 +803,14 @@ class Visualizer10thApp {
 
     switchTab(fName) {
         if (!this.editorFiles[fName]) return;
-        this.editorFiles[this.activeFileName].code = this.dom.codeTextarea.value;
+        if (this.activeFileName === fName) return;
+        if (this.editorFiles[this.activeFileName] && this.dom.codeTextarea) {
+            this.editorFiles[this.activeFileName].code = this.dom.codeTextarea.value;
+        }
         this.activeFileName = fName;
-        this.dom.codeTextarea.value = this.editorFiles[fName].code;
+        if (this.dom.codeTextarea) {
+            this.dom.codeTextarea.value = this.editorFiles[fName].code;
+        }
         this.renderTabs();
         this.updateLineNumbers();
         this.updateActiveLinePosition();
@@ -683,29 +833,37 @@ class Visualizer10thApp {
         };
 
         this.switchTab(fName);
-        this.recompile();
+        this.recompile(false);
     }
 
     removeTab(fName) {
         if (fName === 'Program.cs') return;
         if (!confirm(`האם אתה בטוח שברצונך למחוק את ${fName}?`)) return;
         delete this.editorFiles[fName];
-        this.activeFileName = 'Program.cs';
-        this.switchTab('Program.cs');
-        this.recompile();
+        if (this.activeFileName === fName) {
+            this.activeFileName = 'Program.cs';
+            this.dom.codeTextarea.value = this.editorFiles['Program.cs'].code;
+            this.renderTabs();
+            this.updateLineNumbers();
+            this.updateActiveLinePosition();
+        } else {
+            this.renderTabs();
+        }
+        this.recompile(false);
     }
 
     updateLineNumbers() {
         const lines = (this.dom.codeTextarea.value || '').split('\n').length;
         let html = '';
         for (let i = 1; i <= lines; i++) {
-            html += `<div>${i}</div>`;
+            html += `<div data-line="${i}">${i}</div>`;
         }
         this.dom.lineNumbers.innerHTML = html;
     }
 
-    recompile() {
+    recompile(autoSwitchTab = false) {
         this.pause();
+        this.selectedTraceVars.clear();
         const codeFiles = {};
         for (const [name, obj] of Object.entries(this.editorFiles)) {
             codeFiles[name] = obj.code;
@@ -721,14 +879,14 @@ class Visualizer10thApp {
             this.setStatus('success', `הקוד הורץ בהצלחה (${this.frames.length} צעדים הוקלטו)`);
         }
 
-        this.renderFrame(0);
+        this.renderFrame(0, autoSwitchTab);
         this.renderTraceTable();
     }
 
-    renderFrame(idx) {
+    renderFrame(idx, autoSwitchTab = true) {
         if (!this.frames || this.frames.length === 0) {
             this.dom.stepBadge.textContent = '0 / 0';
-            this.dom.activeLineHighlight.style.display = 'none';
+            this.highlightActiveLine(0);
             if (this.dom.cardEmptyState) this.dom.cardEmptyState.style.display = '';
             this.hideAllCards();
             return;
@@ -747,13 +905,17 @@ class Visualizer10thApp {
             this.setStatus('info', frame.description);
         }
 
-        // מעבר אוטומטי לקובץ הפעיל במסגרת אם הוא שונה
-        if (frame.file && frame.file !== this.activeFileName && this.editorFiles[frame.file]) {
+        // מעבר אוטומטי לקובץ הפעיל במסגרת אם נדרש והקובץ קיים
+        if (autoSwitchTab && frame.file && frame.file !== this.activeFileName && this.editorFiles[frame.file]) {
             this.switchTab(frame.file);
         }
 
-        // הדגשת שורה נוכחית בעורך
-        this.highlightActiveLine(frame.line);
+        // הדגשת שורה נוכחית בעורך - רק אם הקובץ המוצג בעורך תואם לקובץ המסגרת
+        if (!frame.file || frame.file === this.activeFileName) {
+            this.highlightActiveLine(frame.line);
+        } else {
+            this.highlightActiveLine(0);
+        }
 
         // במת המחשה: 1D Arrays
         this.render1DArrays(frame.arrays1D, frame.activePointers);
@@ -784,20 +946,62 @@ class Visualizer10thApp {
     }
 
     highlightActiveLine(lineNum) {
-        if (!lineNum || lineNum <= 0) {
-            this.dom.activeLineHighlight.style.display = 'none';
+        if (!lineNum || lineNum <= 0 || !this.dom.activeLineHighlight || !this.dom.codeTextarea) {
+            if (this.dom.activeLineHighlight) this.dom.activeLineHighlight.style.display = 'none';
+            if (this.dom.lineNumbers) {
+                const prev = this.dom.lineNumbers.querySelector('.active-line-num');
+                if (prev) prev.classList.remove('active-line-num');
+            }
             return;
         }
-        const lineHeight = 23.2; // פיקסלים לשורה לפי CSS
-        const top = (lineNum - 1) * lineHeight - this.dom.codeTextarea.scrollTop + 10;
+
+        const cs = window.getComputedStyle(this.dom.codeTextarea);
+        const paddingTop = parseFloat(cs.paddingTop) || 10.4;
+        const lineHeight = parseFloat(cs.lineHeight) || 23.2;
+        const scrollTop = this.dom.codeTextarea.scrollTop || 0;
+
+        const top = paddingTop + (lineNum - 1) * lineHeight - scrollTop;
+
         this.dom.activeLineHighlight.style.top = `${top}px`;
         this.dom.activeLineHighlight.style.height = `${lineHeight}px`;
         this.dom.activeLineHighlight.style.display = 'block';
+
+        // הדגשת מספר השורה בסרגל מספרי השורות
+        if (this.dom.lineNumbers) {
+            const prev = this.dom.lineNumbers.querySelector('.active-line-num');
+            if (prev) prev.classList.remove('active-line-num');
+            const targetDiv = this.dom.lineNumbers.querySelector(`[data-line="${lineNum}"]`);
+            if (targetDiv) targetDiv.classList.add('active-line-num');
+        }
+
+        // וידוא שהשורה המודגשת גלויה במלואה בעורך
+        this.ensureActiveLineVisible(lineNum, paddingTop, lineHeight);
+    }
+
+    ensureActiveLineVisible(lineNum, paddingTop, lineHeight) {
+        if (!this.dom.codeTextarea) return;
+        const lineTop = paddingTop + (lineNum - 1) * lineHeight;
+        const lineBottom = lineTop + lineHeight;
+        const clientHeight = this.dom.codeTextarea.clientHeight || 400;
+        const currentScroll = this.dom.codeTextarea.scrollTop || 0;
+
+        if (lineTop < currentScroll) {
+            this.dom.codeTextarea.scrollTop = Math.max(0, lineTop - lineHeight);
+        } else if (lineBottom > currentScroll + clientHeight) {
+            this.dom.codeTextarea.scrollTop = lineBottom - clientHeight + lineHeight;
+        }
     }
 
     updateActiveLinePosition() {
         if (this.frames && this.frames[this.currentFrameIdx]) {
-            this.highlightActiveLine(this.frames[this.currentFrameIdx].line);
+            const frame = this.frames[this.currentFrameIdx];
+            if (!frame.file || frame.file === this.activeFileName) {
+                this.highlightActiveLine(frame.line);
+            } else {
+                this.highlightActiveLine(0);
+            }
+        } else {
+            this.highlightActiveLine(0);
         }
     }
 
@@ -813,8 +1017,9 @@ class Visualizer10thApp {
 
         let html = '';
         for (const arr of arrays) {
+            const elemType = arr.elemType || 'int';
             html += `<div class="array-box-wrapper">`;
-            html += `<div class="array-name-badge">int[] ${arr.name} (אורך: ${arr.length})</div>`;
+            html += `<div class="array-name-badge">${elemType}[] ${arr.name} (אורך: ${arr.length})</div>`;
             html += `<div class="array-cells-row">`;
 
             for (let i = 0; i < arr.items.length; i++) {
@@ -830,10 +1035,28 @@ class Visualizer10thApp {
                 const hasPointer = pointersAtIdx.length > 0;
                 const pointerText = hasPointer ? `<span>${pointersAtIdx.join(', ')}</span><span>▼</span>` : '';
 
+                let cellContentHtml = '';
+                let cellExtraClass = '';
+
+                if (val === null || val === undefined) {
+                    cellContentHtml = `<span class="val-null">null</span>`;
+                    cellExtraClass = ' cell-is-null';
+                } else if (typeof val === 'object' && val._heapId) {
+                    cellExtraClass = ' is-object-cell';
+                    const fields = val.fields || {};
+                    const fieldsList = Object.entries(fields).map(([k, v]) => `<span>${k}: <b>${v}</b></span>`).join('');
+                    cellContentHtml = `
+                        <div class="cell-obj-badge">#${val._heapId} ${val.className}</div>
+                        <div class="cell-obj-fields">${fieldsList}</div>
+                    `;
+                } else {
+                    cellContentHtml = String(val);
+                }
+
                 html += `
                     <div class="array-cell-col">
                         <div class="array-cell-pointer">${pointerText}</div>
-                        <div class="array-cell-box ${hasPointer ? 'pointer-active' : ''}">${val !== undefined ? val : 0}</div>
+                        <div class="array-cell-box ${cellExtraClass} ${hasPointer ? 'pointer-active' : ''}">${cellContentHtml}</div>
                         <div class="array-cell-index">[${i}]</div>
                     </div>
                 `;
@@ -981,7 +1204,13 @@ class Visualizer10thApp {
         for (const [key, val] of Object.entries(variables)) {
             let displayVal = val;
             if (Array.isArray(val)) {
-                displayVal = `[${val.slice(0, 4).join(', ')}${val.length > 4 ? '...' : ''}]`;
+                const itemsStr = val.slice(0, 4).map(item => {
+                    if (item && item._heapId) return item.fields && item.fields.name ? `${item.fields.name}` : `${item.className}#${item._heapId}`;
+                    if (typeof item === 'string') return `"${item}"`;
+                    if (item === null) return 'null';
+                    return item;
+                }).join(', ');
+                displayVal = `[${itemsStr}${val.length > 4 ? '...' : ''}]`;
             } else if (val && val._isMatrix) {
                 displayVal = `Matrix[${val.rows},${val.cols}]`;
             } else if (val && val._heapId) {
@@ -1046,6 +1275,9 @@ class Visualizer10thApp {
         if (this.dom.consoleCountBadge) {
             this.dom.consoleCountBadge.textContent = `${count} שורות`;
         }
+        if (this.dom.tabBtnConsole && count > 0 && this.activeInspectionTab !== 'console') {
+            this.dom.tabBtnConsole.classList.add('tab-has-new');
+        }
         if (!this.dom.consoleOutput) return;
         if (!outputs || count === 0) {
             this.dom.consoleOutput.textContent = '--- אין פלט עדיין ---';
@@ -1058,7 +1290,7 @@ class Visualizer10thApp {
     renderTraceTable(skipChips = false) {
         if (!this.frames || this.frames.length === 0) {
             if (this.dom.traceThead) this.dom.traceThead.innerHTML = '';
-            if (this.dom.traceTbody) this.dom.traceTbody.innerHTML = '<tr><td colspan="5">הרץ את התוכנית כדי להפיק טבלת מעקב</td></tr>';
+            if (this.dom.traceTbody) this.dom.traceTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">הרץ את התוכנית כדי להפיק טבלת מעקב</td></tr>';
             if (this.dom.traceStepCount) this.dom.traceStepCount.textContent = '0 צעדים';
             return;
         }
@@ -1067,19 +1299,21 @@ class Visualizer10thApp {
             this.dom.traceStepCount.textContent = `${this.frames.length} צעדים`;
         }
 
-        // איסוף כל שמות המשתנים הפרימיטיביים המופיעים לאורך הריצה
+        // איסוף כל שמות המשתנים המופיעים לאורך הריצה (כולל מערכים, מטריצות, מחרוזות ועצמים)
         const varSet = new Set();
         for (const f of this.frames) {
             if (f.variables) {
                 for (const [k, v] of Object.entries(f.variables)) {
-                    if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'string') {
-                        varSet.add(k);
-                    }
+                    if (k === 'this' || k.startsWith('_')) continue;
+                    varSet.add(k);
                 }
             }
         }
         this.allTraceVars = Array.from(varSet);
-        if (this.selectedTraceVars.size === 0 && this.allTraceVars.length > 0) {
+
+        // סנכרון משתנים נבחרים - אם הסט ריק או שאינו מכיל אף משתנה מהריצה הנוכחית, בחר את כולם
+        const hasOverlap = this.allTraceVars.some(v => this.selectedTraceVars.has(v));
+        if ((this.selectedTraceVars.size === 0 || !hasOverlap) && this.allTraceVars.length > 0) {
             this.selectedTraceVars = new Set(this.allTraceVars);
         }
 
@@ -1089,20 +1323,54 @@ class Visualizer10thApp {
 
         const displayedVars = this.allTraceVars.filter(v => this.selectedTraceVars.has(v));
 
+        // פונקציית עזר לעיצוב ערך תא בטבלה
+        const formatVal = (val) => {
+            if (val === undefined || val === null) return '-';
+            if (typeof val === 'boolean') return val ? 'true' : 'false';
+            if (typeof val === 'number') return String(val);
+            if (Array.isArray(val)) {
+                return `[${val.map(item => {
+                    if (item && item._heapId) {
+                        return item.fields && item.fields.name ? `${item.fields.name}` : `${item.className}#${item._heapId}`;
+                    }
+                    if (typeof item === 'string') return `"${item}"`;
+                    return item;
+                }).join(', ')}]`;
+            }
+            if (val && val._isMatrix) return `${val.rows}×${val.cols}`;
+            if (val && val._heapId) {
+                if (val.fields && Object.keys(val.fields).length > 0) {
+                    const fieldsStr = Object.entries(val.fields)
+                        .map(([k, v]) => `${k}:${typeof v === 'string' ? `"${v}"` : v}`)
+                        .join(', ');
+                    return `${val.className}{${fieldsStr}}`;
+                }
+                return `${val.className}#${val._heapId}`;
+            }
+            if (typeof val === 'object') {
+                try {
+                    return JSON.stringify(val);
+                } catch {
+                    return String(val);
+                }
+            }
+            return String(val);
+        };
+
         // בניית כותרות הטבלה
         let theadHtml = `<tr><th>צעד</th><th>שורה</th><th>תנאי / בדיקה</th>`;
         for (const vName of displayedVars) {
             theadHtml += `<th>${vName}</th>`;
         }
         theadHtml += `<th>פלט לקונסול</th></tr>`;
-        this.dom.traceThead.innerHTML = theadHtml;
+        if (this.dom.traceThead) this.dom.traceThead.innerHTML = theadHtml;
 
         // בניית שורות הטבלה
         let tbodyHtml = '';
         this.frames.forEach((f, idx) => {
             const rowClass = (idx === this.currentFrameIdx) ? 'active-trace-row' : '';
-            let conditionText = '-';
-            if (f.description && f.description.includes('תנאי')) {
+            let conditionText = f.condition || '-';
+            if (conditionText === '-' && f.description && f.description.includes('תנאי')) {
                 conditionText = f.description.replace(/^.*תנאי[^:]*:\s*/, '');
             }
 
@@ -1112,30 +1380,42 @@ class Visualizer10thApp {
             tbodyHtml += `<td>${conditionText}</td>`;
 
             for (const vName of displayedVars) {
-                const val = (f.variables && f.variables[vName] !== undefined) ? f.variables[vName] : '-';
-                tbodyHtml += `<td>${val}</td>`;
+                const rawVal = (f.variables && f.variables[vName] !== undefined) ? f.variables[vName] : undefined;
+                tbodyHtml += `<td>${formatVal(rawVal)}</td>`;
             }
 
-            const outputText = (f.consoleOutputs && f.consoleOutputs.length > 0) ? f.consoleOutputs[f.consoleOutputs.length - 1] : '-';
+            let outputText = '-';
+            if (f.output !== undefined && f.output !== null) {
+                outputText = f.output;
+            } else if (f.description && f.description.startsWith('הדפסה לקונסול: "')) {
+                const match = f.description.match(/^הדפסה לקונסול: "(.*)"$/);
+                if (match) outputText = match[1];
+            }
             tbodyHtml += `<td>${outputText}</td></tr>`;
         });
 
-        this.dom.traceTbody.innerHTML = tbodyHtml;
+        if (this.dom.traceTbody) this.dom.traceTbody.innerHTML = tbodyHtml;
 
         // הוספת האזנה לקליק על שורה לקפיצה בזמן
-        this.dom.traceTbody.querySelectorAll('tr').forEach(tr => {
-            tr.addEventListener('click', () => {
-                const stepIdx = parseInt(tr.dataset.step, 10);
-                if (!isNaN(stepIdx)) {
-                    this.pause();
-                    this.renderFrame(stepIdx);
-                }
+        if (this.dom.traceTbody) {
+            this.dom.traceTbody.querySelectorAll('tr').forEach(tr => {
+                tr.addEventListener('click', () => {
+                    const stepIdx = parseInt(tr.dataset.step, 10);
+                    if (!isNaN(stepIdx)) {
+                        this.pause();
+                        this.renderFrame(stepIdx);
+                    }
+                });
             });
-        });
+        }
     }
 
     renderTraceVarChips() {
         if (!this.dom.traceVarChipsList) return;
+        if (!this.allTraceVars || this.allTraceVars.length === 0) {
+            this.dom.traceVarChipsList.innerHTML = '<span style="color: var(--text-muted); font-size: 0.75rem;">אין משתנים בתוכנית הנוכחית</span>';
+            return;
+        }
         let html = '';
         this.allTraceVars.forEach(vName => {
             const isChecked = this.selectedTraceVars.has(vName);
@@ -1175,6 +1455,7 @@ class Visualizer10thApp {
     }
 
     highlightTraceTableRow(stepIdx) {
+        if (!this.dom.traceTbody) return;
         const rows = this.dom.traceTbody.querySelectorAll('tr');
         rows.forEach((tr, i) => {
             if (i === stepIdx) {
@@ -1187,12 +1468,15 @@ class Visualizer10thApp {
     }
 
     copyTraceTable() {
-        if (!this.frames || this.frames.length === 0) return;
-        const thead = this.dom.traceThead.innerText.replace(/\t/g, ' | ');
-        let content = `| ${thead} |\n| ${this.dom.traceThead.innerText.split('\t').map(() => '---').join(' | ')} |\n`;
+        if (!this.frames || this.frames.length === 0 || !this.dom.traceThead || !this.dom.traceTbody) return;
+        const ths = Array.from(this.dom.traceThead.querySelectorAll('th')).map(th => th.textContent.trim());
+        if (ths.length === 0) return;
+
+        let content = `| ${ths.join(' | ')} |\n`;
+        content += `| ${ths.map(() => '---').join(' | ')} |\n`;
 
         this.dom.traceTbody.querySelectorAll('tr').forEach(tr => {
-            const rowText = Array.from(tr.querySelectorAll('td')).map(td => td.innerText).join(' | ');
+            const rowText = Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim()).join(' | ');
             content += `| ${rowText} |\n`;
         });
 
@@ -1221,7 +1505,7 @@ class Visualizer10thApp {
         // סינון לפי סוג סטודיו ולפי בורר סינון מהיר של כרטיסים
         const showArrays = hasArrays && 
             (this.memFilter === 'all' || this.memFilter === 'arrays') && 
-            (this.studioMode === 'all' || this.studioMode === 'arrays' || this.studioMode === 'functions');
+            (this.studioMode === 'all' || this.studioMode === 'arrays' || this.studioMode === 'functions' || this.studioMode === 'classes' || this.studioMode === 'oop');
 
         const showMatrices = hasMatrices && 
             (this.memFilter === 'all' || this.memFilter === 'matrices') && 
@@ -1233,27 +1517,16 @@ class Visualizer10thApp {
 
         const showHeap = hasHeap && 
             (this.memFilter === 'all' || this.memFilter === 'heap') && 
-            (this.studioMode === 'all' || this.studioMode === 'classes' || this.studioMode === 'oop');
+            (this.studioMode === 'all' || this.studioMode === 'classes' || this.studioMode === 'oop' || this.studioMode === 'arrays');
 
-        const showVars = hasVars && 
-            (this.memFilter === 'all' || this.memFilter === 'vars');
-
-        const showCallStack = hasCallStack && 
-            (this.memFilter === 'all' || this.memFilter === 'vars');
-
-        const showConsole = hasConsole;
-
-        // החלת תצוגה: ערך שלא קיים מקבל 'none' ולכן אינו תופס שום מקום
+        // החלת תצוגה: מבנה שלא קיים מקבל 'none' ולכן אינו תופס שום מקום
         if (this.dom.cardArrays) this.dom.cardArrays.style.display = showArrays ? '' : 'none';
         if (this.dom.cardMatrices) this.dom.cardMatrices.style.display = showMatrices ? '' : 'none';
         if (this.dom.cardStrings) this.dom.cardStrings.style.display = showStrings ? '' : 'none';
         if (this.dom.cardHeap) this.dom.cardHeap.style.display = showHeap ? '' : 'none';
-        if (this.dom.cardVariables) this.dom.cardVariables.style.display = showVars ? '' : 'none';
-        if (this.dom.cardCallstack) this.dom.cardCallstack.style.display = showCallStack ? '' : 'none';
-        if (this.dom.cardConsole) this.dom.cardConsole.style.display = showConsole ? '' : 'none';
 
-        // בדיקה האם יש כרטיס גלוי כלשהו - אם אין, מוצג כרטיס מצב ריק ידידותי
-        const anyCardVisible = showArrays || showMatrices || showStrings || showHeap || showVars || showCallStack || showConsole;
+        // בדיקה האם יש כרטיס מבנה נתונים גלוי כלשהו - אם אין, מוצג כרטיס מצב ריק
+        const anyCardVisible = showArrays || showMatrices || showStrings || showHeap;
         if (this.dom.cardEmptyState) {
             this.dom.cardEmptyState.style.display = anyCardVisible ? 'none' : '';
         }
@@ -1264,9 +1537,6 @@ class Visualizer10thApp {
         if (this.dom.cardMatrices) this.dom.cardMatrices.style.display = 'none';
         if (this.dom.cardStrings) this.dom.cardStrings.style.display = 'none';
         if (this.dom.cardHeap) this.dom.cardHeap.style.display = 'none';
-        if (this.dom.cardVariables) this.dom.cardVariables.style.display = 'none';
-        if (this.dom.cardCallstack) this.dom.cardCallstack.style.display = 'none';
-        if (this.dom.cardConsole) this.dom.cardConsole.style.display = 'none';
     }
 
     applyStudioModeFilter() {
@@ -1329,7 +1599,16 @@ class Visualizer10thApp {
         }
     }
 
+    flushPendingRecompile() {
+        if (this.recompileTimer) {
+            clearTimeout(this.recompileTimer);
+            this.recompileTimer = null;
+            this.recompile(false);
+        }
+    }
+
     play() {
+        this.flushPendingRecompile();
         if (this.currentFrameIdx >= this.frames.length - 1) {
             this.currentFrameIdx = 0;
         }
@@ -1340,7 +1619,7 @@ class Visualizer10thApp {
 
         this.playTimer = setInterval(() => {
             if (this.currentFrameIdx < this.frames.length - 1) {
-                this.renderFrame(this.currentFrameIdx + 1);
+                this.renderFrame(this.currentFrameIdx + 1, true);
             } else {
                 this.pause();
             }
@@ -1361,22 +1640,25 @@ class Visualizer10thApp {
     }
 
     stepNext() {
+        this.flushPendingRecompile();
         this.pause();
         if (this.currentFrameIdx < this.frames.length - 1) {
-            this.renderFrame(this.currentFrameIdx + 1);
+            this.renderFrame(this.currentFrameIdx + 1, true);
         }
     }
 
     stepPrev() {
+        this.flushPendingRecompile();
         this.pause();
         if (this.currentFrameIdx > 0) {
-            this.renderFrame(this.currentFrameIdx - 1);
+            this.renderFrame(this.currentFrameIdx - 1, true);
         }
     }
 
     reset() {
+        this.flushPendingRecompile();
         this.pause();
-        this.renderFrame(0);
+        this.renderFrame(0, true);
     }
 
     setStatus(type, message) {

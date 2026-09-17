@@ -256,7 +256,6 @@
                             <button type="button" class="btn-mem-filter" data-filter="matrices">🔲 מטריצות (2D)</button>
                             <button type="button" class="btn-mem-filter" data-filter="strings">🔤 מחרוזות</button>
                             <button type="button" class="btn-mem-filter" data-filter="heap">📦 עצמים ב-Heap</button>
-                            <button type="button" class="btn-mem-filter" data-filter="vars">🔍 משתנים</button>
                         </div>
 
                         <!-- מיכל הכרטיסים הדינמי: כרטיס שאין בו מידע לא תופס מקום כלל! -->
@@ -347,75 +346,11 @@
                                 <div class="card-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה החלונית (לחיצה כפולה לאיפוס)"></div>
                             </div>
 
-                            <!-- 5. כרטיס משתנים מקומיים -->
-                            <div class="view-card live-card" id="card-variables" style="display: none;">
-                                <div class="view-card-header">
-                                    <div class="card-title-group">
-                                        <span class="card-icon">🔍</span>
-                                        <span class="card-title">משתנים מקומיים (Local Variables)</span>
-                                        <span class="card-badge" id="vars-count-badge">0 משתנים</span>
-                                    </div>
-                                    <div style="display: flex; align-items: center; gap: 0.35rem;">
-                                        <button type="button" class="btn-card-stretch" title="מקסם / שחזר גודל חלונית">⛶</button>
-                                        <button type="button" class="btn-card-toggle" title="מזער / הרחב חלונית">➖</button>
-                                    </div>
-                                </div>
-                                <div class="view-card-body">
-                                    <div class="variables-chips-grid" id="variables-chips-grid"></div>
-                                    <table class="simple-table" id="variables-table" style="display: none;">
-                                        <thead>
-                                             <tr><th>משתנה</th><th>ערך נוכחי</th></tr>
-                                        </thead>
-                                        <tbody id="variables-tbody"></tbody>
-                                    </table>
-                                </div>
-                                <div class="card-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה החלונית (לחיצה כפולה לאיפוס)"></div>
-                            </div>
-
-                            <!-- 6. כרטיס מחסנית קריאות -->
-                            <div class="view-card live-card" id="card-callstack" style="display: none;">
-                                <div class="view-card-header">
-                                    <div class="card-title-group">
-                                        <span class="card-icon">🥞</span>
-                                        <span class="card-title">מחסנית קריאות (Call Stack)</span>
-                                        <span class="card-badge" id="stack-count-badge">0</span>
-                                    </div>
-                                    <div style="display: flex; align-items: center; gap: 0.35rem;">
-                                        <button type="button" class="btn-card-stretch" title="מקסם / שחזר גודל חלונית">⛶</button>
-                                        <button type="button" class="btn-card-toggle" title="מזער / הרחב חלונית">➖</button>
-                                    </div>
-                                </div>
-                                <div class="view-card-body">
-                                    <ul id="call-stack-list" class="call-stack-list"></ul>
-                                </div>
-                                <div class="card-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה החלונית (לחיצה כפולה לאיפוס)"></div>
-                            </div>
-
-                            <!-- 7. כרטיס פלט מסוף (Terminal Console) -->
-                            <div class="view-card live-card" id="card-console" style="display: none;">
-                                <div class="view-card-header">
-                                    <div class="card-title-group">
-                                        <span class="card-icon">💻</span>
-                                        <span class="card-title">פלט מסוף (Terminal Console)</span>
-                                        <span class="card-badge" id="console-count-badge">0 שורות</span>
-                                    </div>
-                                    <div style="display: flex; align-items: center; gap: 0.35rem;">
-                                        <button type="button" id="btn-clear-console" class="btn-quick" style="padding: 0.15rem 0.5rem; font-size: 0.72rem;" title="נקה פלט">נקה</button>
-                                        <button type="button" class="btn-card-stretch" title="מקסם / שחזר גודל חלונית">⛶</button>
-                                        <button type="button" class="btn-card-toggle" title="מזער / הרחב חלונית">➖</button>
-                                    </div>
-                                </div>
-                                <div class="view-card-body" style="padding: 0.5rem;">
-                                    <div class="console-box" id="console-output"></div>
-                                </div>
-                                <div class="card-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה המסוף (לחיצה כפולה לאיפוס)"></div>
-                            </div>
-
                         </div>
                     </div>
 
                     <!-- 2.2 פאנל טבלת מעקב -->
-                    <div class="main-view-pane" id="pane-trace-view" style="display: none;">
+                    <div class="main-view-pane" id="pane-trace-view">
                         
                         <!-- סרגל בחירת משתנים למעקב -->
                         <div class="trace-vars-bar">
@@ -446,6 +381,63 @@
                     </div>
 
                 </div>
+            </div>
+
+            <!-- מפריד שינוי גובה אנכי בין במת הכרטיסים לכרטיסיות המעקב והמסוף (Vertical Resizer) -->
+            <div class="panel-resizer-vertical" id="stage-vertical-resizer" title="גרור למעלה/למטה לשינוי גובה במת הכרטיסים (לחיצה כפולה לאיפוס)">
+                <div class="resizer-horizontal-grip"></div>
+            </div>
+
+            <!-- כרטיסיות מעקב נתונים, פלט מסוף ומחסנית קריאות (Tabs: Variables, Console, Call Stack) -->
+            <div class="card inspection-tabs-card" id="card-inspection-tabs">
+                <div class="card-header tabs-header">
+                    <div class="tabs-nav inspection-tabs-nav">
+                        <button type="button" class="tab-btn-insp active" id="tab-btn-vars" data-tab="vars" title="משתנים מקומיים">
+                            <span>🔍</span>
+                            <span>משתנים מקומיים (Variables)</span>
+                            <span class="card-badge" id="vars-count-badge">0 משתנים</span>
+                        </button>
+                        <button type="button" class="tab-btn-insp" id="tab-btn-console" data-tab="console" title="מסוף פלט המערכת">
+                            <span>💻</span>
+                            <span>מסוף פלט (Console)</span>
+                            <span class="card-badge" id="console-count-badge">0 שורות</span>
+                        </button>
+                        <button type="button" class="tab-btn-insp" id="tab-btn-stack" data-tab="stack" title="מחסנית קריאות לפונקציות">
+                            <span>🥞</span>
+                            <span>מחסנית קריאות (Call Stack)</span>
+                            <span class="card-badge" id="stack-count-badge">0</span>
+                        </button>
+                    </div>
+                    <div class="card-header-actions" style="display: flex; align-items: center; gap: 0.35rem;">
+                        <button type="button" id="btn-clear-console" class="btn-quick" style="padding: 0.15rem 0.5rem; font-size: 0.72rem; display: none;" title="נקה פלט מסוף">נקה</button>
+                        <button type="button" class="btn-card-stretch" title="מקסם / שחזר גודל כרטיסיות">⛶</button>
+                        <button type="button" class="btn-card-toggle" title="מזער / הרחב כרטיסיות">➖</button>
+                    </div>
+                </div>
+
+                <div class="tab-content-container inspection-body" id="tabs-inspection-body">
+                    <!-- לשונית 1: משתנים מקומיים -->
+                    <div class="tab-pane-insp active" id="tab-pane-vars">
+                        <div class="variables-chips-grid" id="variables-chips-grid"></div>
+                        <table class="simple-table" id="variables-table" style="display: none;">
+                            <thead>
+                                <tr><th>משתנה</th><th>ערך נוכחי</th></tr>
+                            </thead>
+                            <tbody id="variables-tbody"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- לשונית 2: מסוף פלט -->
+                    <div class="tab-pane-insp" id="tab-pane-console">
+                        <div class="console-box" id="console-output"></div>
+                    </div>
+
+                    <!-- לשונית 3: מחסנית קריאות -->
+                    <div class="tab-pane-insp" id="tab-pane-stack">
+                        <ul id="call-stack-list" class="call-stack-list"></ul>
+                    </div>
+                </div>
+                <div class="card-resize-handle" title="גרור למעלה/למטה כדי למתוח את גובה הכרטיסיות (לחיצה כפולה לאיפוס)"></div>
             </div>
 
         </section>

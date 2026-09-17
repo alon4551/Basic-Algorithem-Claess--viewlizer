@@ -79,6 +79,12 @@ class CSharp10thInterpreter {
         const files = {};
         if (typeof source === 'string') {
             files['Program.cs'] = source;
+        } else if (Array.isArray(source)) {
+            for (const item of source) {
+                if (item && item.name) {
+                    files[item.name] = item.code || '';
+                }
+            }
         } else if (source && typeof source === 'object') {
             for (const [key, val] of Object.entries(source)) {
                 files[key] = (typeof val === 'string') ? val : (val.code || '');
@@ -323,14 +329,14 @@ class Runtime10thEnvironment {
 
         this.recordFrame(method.line, `קריאה למתודה: ${callStackEntry.funcName}`);
 
-        const result = this.executeBlock(method.body, method.line, method.fileName, frameVars);
+        const result = this.executeBlock(method.body, method.bodyOffset, method.fileName, frameVars);
         this.callStack.pop();
         return result ? result.value : undefined;
     }
 
-    executeBlock(code, startLine, fileName, scopeVars) {
+    executeBlock(code, bodyOffset, fileName, scopeVars) {
         // פירוק שורות ופקודות
-        const statements = this.extractStatements(code, startLine, fileName);
+        const statements = this.extractStatements(code, bodyOffset, fileName);
         for (const stmt of statements) {
             this.checkLimit();
             const res = this.executeStatement(stmt, scopeVars);
@@ -341,21 +347,22 @@ class Runtime10thEnvironment {
         return null;
     }
 
-    extractStatements(code, startLine, fileName) {
+    extractStatements(code, bodyOffset, fileName) {
         const list = [];
         let i = 0;
         const len = code.length;
-        let lineOffset = 0;
+        const fullText = (this.ast && this.ast.files && this.ast.files[fileName]) ? this.ast.files[fileName] : code;
+        const baseOffset = (typeof bodyOffset === 'number' && bodyOffset >= 0) ? bodyOffset : 0;
 
         while (i < len) {
             // דילוג על רווחים
             while (i < len && /\s/.test(code[i])) {
-                if (code[i] === '\n') lineOffset++;
                 i++;
             }
             if (i >= len) break;
 
-            const currentLine = startLine + lineOffset;
+            const charIndex = baseOffset + i;
+            const currentLine = (fullText.slice(0, charIndex).match(/\n/g) || []).length + 1;
 
             // דילוג על הערות //
             if (code[i] === '/' && code[i + 1] === '/') {
@@ -366,7 +373,6 @@ class Runtime10thEnvironment {
             if (code[i] === '/' && code[i + 1] === '*') {
                 i += 2;
                 while (i < len && !(code[i - 1] === '*' && code[i] === '/')) {
-                    if (code[i] === '\n') lineOffset++;
                     i++;
                 }
                 i++;
@@ -378,14 +384,12 @@ class Runtime10thEnvironment {
             const forMatch = remaining.match(/^for\s*\(/);
             const whileMatch = remaining.match(/^while\s*\(/);
             const ifMatch = remaining.match(/^if\s*\(/);
-            const doMatch = remaining.match(/^do\s*\{/);
 
             if (forMatch) {
                 const headerEnd = this.findMatchingParen(code, i + forMatch[0].length - 1);
                 const header = code.slice(i + forMatch[0].length, headerEnd);
                 let bodyStart = headerEnd + 1;
                 while (bodyStart < len && /\s/.test(code[bodyStart])) {
-                    if (code[bodyStart] === '\n') lineOffset++;
                     bodyStart++;
                 }
 
@@ -396,10 +400,10 @@ class Runtime10thEnvironment {
                         type: 'for',
                         header,
                         body,
+                        bodyOffset: baseOffset + bodyStart + 1,
                         line: currentLine,
                         fileName
                     });
-                    lineOffset += (code.slice(i, bodyEnd).match(/\n/g) || []).length;
                     i = bodyEnd + 1;
                 } else {
                     // שורה יחידה ללא סוגריים מסולסלים
@@ -409,6 +413,7 @@ class Runtime10thEnvironment {
                         type: 'for',
                         header,
                         body: code.slice(bodyStart, singleEnd + 1),
+                        bodyOffset: baseOffset + bodyStart,
                         line: currentLine,
                         fileName
                     });
@@ -422,7 +427,6 @@ class Runtime10thEnvironment {
                 const condition = code.slice(i + whileMatch[0].length, headerEnd);
                 let bodyStart = headerEnd + 1;
                 while (bodyStart < len && /\s/.test(code[bodyStart])) {
-                    if (code[bodyStart] === '\n') lineOffset++;
                     bodyStart++;
                 }
 
@@ -433,10 +437,10 @@ class Runtime10thEnvironment {
                         type: 'while',
                         condition,
                         body,
+                        bodyOffset: baseOffset + bodyStart + 1,
                         line: currentLine,
                         fileName
                     });
-                    lineOffset += (code.slice(i, bodyEnd).match(/\n/g) || []).length;
                     i = bodyEnd + 1;
                 } else {
                     let singleEnd = code.indexOf(';', bodyStart);
@@ -445,6 +449,7 @@ class Runtime10thEnvironment {
                         type: 'while',
                         condition,
                         body: code.slice(bodyStart, singleEnd + 1),
+                        bodyOffset: baseOffset + bodyStart,
                         line: currentLine,
                         fileName
                     });
@@ -458,50 +463,55 @@ class Runtime10thEnvironment {
                 const condition = code.slice(i + ifMatch[0].length, headerEnd);
                 let bodyStart = headerEnd + 1;
                 while (bodyStart < len && /\s/.test(code[bodyStart])) {
-                    if (code[bodyStart] === '\n') lineOffset++;
                     bodyStart++;
                 }
 
                 let ifBody = '';
+                let ifBodyOffset = baseOffset + bodyStart;
                 let nextIdx = bodyStart;
                 if (code[bodyStart] === '{') {
                     const bodyEnd = this.findMatchingBrace(code, bodyStart);
                     ifBody = code.slice(bodyStart + 1, bodyEnd);
+                    ifBodyOffset = baseOffset + bodyStart + 1;
                     nextIdx = bodyEnd + 1;
                 } else {
                     let singleEnd = code.indexOf(';', bodyStart);
                     if (singleEnd === -1) singleEnd = len;
                     ifBody = code.slice(bodyStart, singleEnd + 1);
+                    ifBodyOffset = baseOffset + bodyStart;
                     nextIdx = singleEnd + 1;
                 }
 
                 // בדיקה אם יש else
                 let elseBody = null;
+                let elseBodyOffset = null;
                 let postIf = code.slice(nextIdx);
                 const elseMatch = postIf.match(/^\s*else(?:\s*\{|\s+if\s*\(|\s+)/);
                 if (elseMatch) {
                     const elseKeywordIdx = nextIdx + postIf.indexOf('else');
                     let elseStart = elseKeywordIdx + 4;
                     while (elseStart < len && /\s/.test(code[elseStart])) {
-                        if (code[elseStart] === '\n') lineOffset++;
                         elseStart++;
                     }
                     if (code[elseStart] === '{') {
                         const elseEnd = this.findMatchingBrace(code, elseStart);
                         elseBody = code.slice(elseStart + 1, elseEnd);
+                        elseBodyOffset = baseOffset + elseStart + 1;
                         nextIdx = elseEnd + 1;
                     } else {
                         // else if או שורה יחידה
                         let singleEnd = code.indexOf(';', elseStart);
                         if (code.slice(elseStart).trim().startsWith('if')) {
-                            const subStatements = this.extractStatements(code.slice(elseStart), currentLine, fileName);
+                            const subStatements = this.extractStatements(code.slice(elseStart), baseOffset + elseStart, fileName);
                             if (subStatements.length > 0) {
                                 elseBody = subStatements[0];
-                                nextIdx = len; // יטופל בנפרד
+                                elseBodyOffset = baseOffset + elseStart;
+                                nextIdx = len;
                             }
                         } else {
                             if (singleEnd === -1) singleEnd = len;
                             elseBody = code.slice(elseStart, singleEnd + 1);
+                            elseBodyOffset = baseOffset + elseStart;
                             nextIdx = singleEnd + 1;
                         }
                     }
@@ -511,11 +521,12 @@ class Runtime10thEnvironment {
                     type: 'if',
                     condition,
                     body: ifBody,
+                    bodyOffset: ifBodyOffset,
                     elseBody,
+                    elseBodyOffset: elseBodyOffset,
                     line: currentLine,
                     fileName
                 });
-                lineOffset += (code.slice(i, nextIdx).match(/\n/g) || []).length;
                 i = nextIdx;
                 continue;
             }
@@ -532,7 +543,6 @@ class Runtime10thEnvironment {
                     fileName
                 });
             }
-            lineOffset += (code.slice(i, semiIdx + 1).match(/\n/g) || []).length;
             i = semiIdx + 1;
         }
 
@@ -640,7 +650,7 @@ class Runtime10thEnvironment {
             this.loopIterationCounters[loopId]++;
 
             // ביצוע גוף הלולאה
-            const res = this.executeBlock(stmt.body, stmt.line + 1, stmt.fileName, scopeVars);
+            const res = this.executeBlock(stmt.body, stmt.bodyOffset, stmt.fileName, scopeVars);
             if (res) {
                 if (res.type === 'break') break;
                 if (res.type === 'return') return res;
@@ -648,7 +658,12 @@ class Runtime10thEnvironment {
 
             // צעד קידום הלולאה
             if (updateCode.length > 0) {
-                this.executeAssignmentOrDecl(updateCode, scopeVars, stmt.line);
+                const subUpdates = updateCode.split(',');
+                for (const subUp of subUpdates) {
+                    if (subUp.trim().length > 0) {
+                        this.executeAssignmentOrDecl(subUp.trim(), scopeVars, stmt.line);
+                    }
+                }
             }
         }
         return null;
@@ -670,7 +685,7 @@ class Runtime10thEnvironment {
             if (!condVal) break;
 
             this.loopIterationCounters[loopId]++;
-            const res = this.executeBlock(stmt.body, stmt.line + 1, stmt.fileName, scopeVars);
+            const res = this.executeBlock(stmt.body, stmt.bodyOffset, stmt.fileName, scopeVars);
             if (res) {
                 if (res.type === 'break') break;
                 if (res.type === 'return') return res;
@@ -688,10 +703,10 @@ class Runtime10thEnvironment {
         });
 
         if (condVal) {
-            return this.executeBlock(stmt.body, stmt.line + 1, stmt.fileName, scopeVars);
+            return this.executeBlock(stmt.body, stmt.bodyOffset, stmt.fileName, scopeVars);
         } else if (stmt.elseBody) {
             if (typeof stmt.elseBody === 'string') {
-                return this.executeBlock(stmt.elseBody, stmt.line + 1, stmt.fileName, scopeVars);
+                return this.executeBlock(stmt.elseBody, stmt.elseBodyOffset, stmt.fileName, scopeVars);
             } else if (stmt.elseBody.type) {
                 return this.executeStatement(stmt.elseBody, scopeVars);
             }
@@ -726,6 +741,9 @@ class Runtime10thEnvironment {
     }
 
     executeAssignmentOrDecl(raw, scopeVars, line) {
+        raw = raw.trim().replace(/;+$/, '').trim();
+        if (raw.length === 0) return;
+
         // קידום והפחתה: target++, target--, ++target, --target
         let incDecMatch = null;
         if (raw.endsWith('++')) incDecMatch = { target: raw.slice(0, -2).trim(), delta: 1 };
@@ -736,7 +754,8 @@ class Runtime10thEnvironment {
         if (incDecMatch && incDecMatch.target.length > 0) {
             const target = incDecMatch.target;
             const currentVal = this.evalTargetValue(target, scopeVars, line);
-            const newVal = (currentVal || 0) + incDecMatch.delta;
+            const num = (typeof currentVal === 'number') ? currentVal : (parseFloat(currentVal) || 0);
+            const newVal = num + incDecMatch.delta;
             this.assignTargetValue(target, newVal, scopeVars, line);
             this.recordFrame(line, `קידום/הפחתה: ${target} = ${newVal}`);
             return;
@@ -753,16 +772,29 @@ class Runtime10thEnvironment {
                 const rhsVal = this.evalExpr(expr, scopeVars, line);
                 const currentVal = this.evalTargetValue(target, scopeVars, line);
 
+                const numCurrent = (typeof currentVal === 'number') ? currentVal : (parseFloat(currentVal) || 0);
+                const numRhs = (typeof rhsVal === 'number') ? rhsVal : (parseFloat(rhsVal) || 0);
+
                 let newVal;
-                if (op === '+=') newVal = currentVal + rhsVal;
-                else if (op === '-=') newVal = currentVal - rhsVal;
-                else if (op === '*=') newVal = currentVal * rhsVal;
+                if (op === '+=') {
+                    if (typeof currentVal === 'string' || typeof rhsVal === 'string') {
+                        newVal = String(currentVal ?? '') + String(rhsVal ?? '');
+                    } else {
+                        newVal = numCurrent + numRhs;
+                    }
+                }
+                else if (op === '-=') newVal = numCurrent - numRhs;
+                else if (op === '*=') newVal = numCurrent * numRhs;
                 else if (op === '/=') {
-                    if (rhsVal === 0) throw { message: 'חלוקה באפס (DivideByZeroException): לא ניתן לחלק ב-0.', line, file: this.currentFile };
-                    newVal = Math.floor(currentVal / rhsVal);
+                    if (numRhs === 0) throw { message: 'חלוקה באפס (DivideByZeroException): לא ניתן לחלק ב-0.', line, file: this.currentFile };
+                    if (Number.isInteger(numCurrent) && Number.isInteger(numRhs)) {
+                        newVal = Math.trunc(numCurrent / numRhs);
+                    } else {
+                        newVal = numCurrent / numRhs;
+                    }
                 } else if (op === '%=') {
-                    if (rhsVal === 0) throw { message: 'חלוקה באפס (DivideByZeroException): שארית מודולו באפס אינה מוגדרת.', line, file: this.currentFile };
-                    newVal = currentVal % rhsVal;
+                    if (numRhs === 0) throw { message: 'חלוקה באפס (DivideByZeroException): שארית מודולו באפס אינה מוגדרת.', line, file: this.currentFile };
+                    newVal = numCurrent % numRhs;
                 }
 
                 this.assignTargetValue(target, newVal, scopeVars, line);
@@ -779,6 +811,9 @@ class Runtime10thEnvironment {
                     const type = parts.slice(0, -1).join(' ');
                     const varName = parts[parts.length - 1];
                     if (/^[A-Za-z0-9_]+$/.test(varName)) {
+                        if (Array.isArray(rhsVal) && type.endsWith('[]')) {
+                            rhsVal._elemType = type.slice(0, -2).trim();
+                        }
                         scopeVars[varName] = rhsVal;
                         this.recordFrame(line, `הצהרה והשמה: ${type} ${varName} = ${this.formatVal(rhsVal)}`);
                         return;
@@ -926,6 +961,21 @@ class Runtime10thEnvironment {
             }
         }
 
+        // קידום והפחתה בתוך ביטוי: target++, target--, ++target, --target
+        let exprIncDec = null;
+        if (expr.endsWith('++') && !expr.includes(';') && !expr.startsWith('++')) exprIncDec = { target: expr.slice(0, -2).trim(), delta: 1, isPost: true };
+        else if (expr.endsWith('--') && !expr.includes(';') && !expr.startsWith('--')) exprIncDec = { target: expr.slice(0, -2).trim(), delta: -1, isPost: true };
+        else if (expr.startsWith('++') && !expr.includes(';')) exprIncDec = { target: expr.slice(2).trim(), delta: 1, isPost: false };
+        else if (expr.startsWith('--') && !expr.includes(';')) exprIncDec = { target: expr.slice(2).trim(), delta: -1, isPost: false };
+
+        if (exprIncDec && /^[A-Za-z0-9_\[\], \.]+$/.test(exprIncDec.target)) {
+            const currentVal = this.evalTargetValue(exprIncDec.target, scopeVars, line);
+            const oldVal = (typeof currentVal === 'number') ? currentVal : (parseFloat(currentVal) || 0);
+            const newVal = oldVal + exprIncDec.delta;
+            this.assignTargetValue(exprIncDec.target, newVal, scopeVars, line);
+            return exprIncDec.isPost ? oldVal : newVal;
+        }
+
         // טיפול במחרוזות מפורשות "..."
         if (expr.startsWith('"') && expr.endsWith('"') && expr.length >= 2) {
             let isSingle = true;
@@ -990,7 +1040,9 @@ class Runtime10thEnvironment {
                     else if (type === 'bool') defaultVal = false;
                     else if (type === 'char') defaultVal = '\0';
                     else if (type !== 'int' && type !== 'double') defaultVal = null;
-                    return new Array(size).fill(defaultVal);
+                    const arr = new Array(size).fill(defaultVal);
+                    arr._elemType = type;
+                    return arr;
                 } else if (newIndexed.type === '2D') {
                     const type = newIndexed.target;
                     const rows = this.evalExpr(newIndexed.rowExpr, scopeVars, line);
@@ -1013,9 +1065,22 @@ class Runtime10thEnvironment {
             }
         }
 
-        // אתחול מערך 1D עם ערכים: { 1, 2, 3 }
+        // אתחול מערך עם new Type[] { ... } או new Type[n] { ... }
+        if (expr.startsWith('new ') && expr.endsWith('}') && expr.includes('{')) {
+            const braceIdx = expr.indexOf('{');
+            const typePart = expr.slice(4, braceIdx).trim();
+            const literal = expr.slice(braceIdx).trim();
+            const arr = this.evalExpr(literal, scopeVars, line);
+            if (Array.isArray(arr) && typePart.endsWith('[]')) {
+                arr._elemType = typePart.slice(0, -2).trim();
+            }
+            return arr;
+        }
+
+        // אתחול מערך 1D עם ערכים: { 1, 2, 3 } או {}
         if (expr.startsWith('{') && expr.endsWith('}') && !expr.includes(';')) {
             const inner = expr.slice(1, -1).trim();
+            if (inner.length === 0) return [];
             // בדיקה האם זו מטריצה { {1,2}, {3,4} }
             if (inner.startsWith('{')) {
                 return this.parseMatrixLiteral(inner, scopeVars, line);
@@ -1046,43 +1111,45 @@ class Runtime10thEnvironment {
             if (expr.startsWith('char.IsLetter')) return /[a-zA-Zא-ת]/.test(ch);
         }
 
-        // קריאה למתודת מחרוזת: str.Length, str.Substring, str.IndexOf, str.Contains, str.ToUpper, str.ToLower
-        const strMethodMatch = expr.match(/^([A-Za-z0-9_\[\], \.]+)\.(Length|Substring|IndexOf|Contains|ToUpper|ToLower|Replace)\s*(?:\((.*)\))?$/);
+        // קריאה למתודת מחרוזת או מאפיין: str.Length, str.length, arr.Length, arr.length וכו'
+        const strMethodMatch = expr.match(/^([A-Za-z0-9_\[\], \.]+)\.(Length|Substring|IndexOf|Contains|ToUpper|ToLower|Replace)\s*(?:\((.*)\))?$/i);
         if (strMethodMatch) {
             const target = strMethodMatch[1].trim();
             const method = strMethodMatch[2];
             const rawArgs = strMethodMatch[3] !== undefined ? strMethodMatch[3].trim() : null;
 
             // mat.GetLength(dim)
-            if (method === 'GetLength' || (method === 'Length' && target.endsWith('GetLength'))) {
+            if (method.toLowerCase() === 'getlength' || (method.toLowerCase() === 'length' && target.endsWith('GetLength'))) {
                 // יטופל בהמשך
             }
 
             const targetVal = this.evalExpr(target, scopeVars, line);
+            const methodLower = method.toLowerCase();
 
-            if (method === 'Length') {
+            if (methodLower === 'length') {
                 if (targetVal === null || targetVal === undefined) throw { message: `ניסיון לקרוא Length של ערך ריק או null ב-${target}`, line, file: this.currentFile };
+                if (targetVal && targetVal._isMatrix) return targetVal.rows * targetVal.cols;
                 return targetVal.length !== undefined ? targetVal.length : 0;
             }
 
             const strVal = String(targetVal || '');
             const args = rawArgs ? this.splitArgs(rawArgs).map(a => this.evalExpr(a, scopeVars, line)) : [];
 
-            if (method === 'Substring') {
+            if (methodLower === 'substring') {
                 const start = args[0] || 0;
                 const lenArg = args[1];
                 if (lenArg !== undefined) return strVal.substr(start, lenArg);
                 return strVal.substring(start);
             }
-            if (method === 'IndexOf') {
+            if (methodLower === 'indexof') {
                 return strVal.indexOf(String(args[0] || ''));
             }
-            if (method === 'Contains') {
+            if (methodLower === 'contains') {
                 return strVal.includes(String(args[0] || ''));
             }
-            if (method === 'ToUpper') return strVal.toUpperCase();
-            if (method === 'ToLower') return strVal.toLowerCase();
-            if (method === 'Replace') return strVal.replaceAll(String(args[0] || ''), String(args[1] || ''));
+            if (methodLower === 'toupper') return strVal.toUpperCase();
+            if (methodLower === 'tolower') return strVal.toLowerCase();
+            if (methodLower === 'replace') return strVal.replaceAll(String(args[0] || ''), String(args[1] || ''));
         }
 
         // mat.GetLength(dim)
@@ -1129,29 +1196,94 @@ class Runtime10thEnvironment {
             }
         }
 
-        // שדה באובייקט obj.field או target[i].field
+        // שדה/מתודה של עצם: obj.field, obj.method(args), target[i].field, ClassName.StaticMethod(args)
         const dotMatch = this.splitTopLevelDot(expr);
         if (dotMatch) {
+            const memberExpr = dotMatch.member.trim();
+
+            // ולידציה: ה-member חייב להיות מזהה תקין (identifier) או קריאת מתודה (identifier(...))
+            // אם הוא מכיל אופרטורים בינאריים ברמה עליונה (למשל "width * factor"), זה ביטוי בינארי ולא גישה לשדה
+            const isValidMember = /^[A-Za-z0-9_]+(\s*\(.*\))?$/.test(memberExpr) ||
+                                  memberExpr.match(/^[A-Za-z0-9_]+\s*\(/) !== null;
+            // בדיקה שה-member לא מכיל אופרטורים בינאריים ברמה עליונה
+            let hasBinaryOp = false;
+            if (!isValidMember) {
+                hasBinaryOp = true;
+            } else {
+                // בדיקה נוספת: אם ה-member מכיל תוים כמו space ואחריהם אופרטור ב-top level
+                let d = 0;
+                for (let ci = 0; ci < memberExpr.length; ci++) {
+                    const ch = memberExpr[ci];
+                    if (ch === '(' || ch === '[' || ch === '{') d++;
+                    else if (ch === ')' || ch === ']' || ch === '}') d--;
+                    else if (d === 0 && /[\+\-\*\/\%\<\>\!\=\&\|]/.test(ch) && ch !== '.' && ch !== '_') {
+                        // מנע false positives על != == <= >=
+                        hasBinaryOp = true;
+                        break;
+                    }
+                }
+            }
+            if (hasBinaryOp) {
+                // זהו ביטוי בינארי כמו "this.width * factor" - נטפל בו ב-evalBinaryExpr
+                return this.evalBinaryExpr(expr, scopeVars, line);
+            }
+
+            // בדיקה האם זוהי קריאה למתודה: member מסתיים ב-( ... )
+            const memberCallMatch = memberExpr.match(/^([A-Za-z0-9_]+)\s*\(([\s\S]*)?\)$/);
+            if (memberCallMatch) {
+                const methodName = memberCallMatch[1];
+                const rawArgs = (memberCallMatch[2] || '').trim();
+                const args = rawArgs.length > 0 ? this.splitArgs(rawArgs).map(a => this.evalExpr(a, scopeVars, line)) : [];
+
+                // ניסיון לזהות האם זהו שם מחלקה סטטי (ClassName.Method)
+                const targetExpr = dotMatch.target.trim();
+                const staticCls = this.ast.classes.find(c => c.name === targetExpr);
+                if (staticCls) {
+                    const staticMethod = staticCls.methods.find(m => m.name === methodName && m.isStatic);
+                    if (staticMethod) {
+                        return this.invokeMethod(staticCls, staticMethod, null, args);
+                    }
+                }
+
+                // מתודה של מופע (instance method): eval the target object first
+                const targetVal = this.evalExpr(targetExpr, scopeVars, line);
+                if (targetVal && typeof targetVal === 'object' && targetVal._heapId) {
+                    const cls = this.ast.classes.find(c => c.name === targetVal.className);
+                    if (cls) {
+                        const method = cls.methods.find(m => m.name === methodName);
+                        if (method) {
+                            return this.invokeMethod(cls, method, targetVal, args);
+                        }
+                    }
+                    // מתודה שאינה מוגדרת על העצם
+                    return undefined;
+                }
+            }
+
+            // גישה לשדה (לא מתודה): obj.field
             const targetVal = this.evalExpr(dotMatch.target, scopeVars, line);
-            const field = dotMatch.member;
+            const field = memberExpr;
             if (targetVal && typeof targetVal === 'object' && targetVal._heapId) {
                 return targetVal.fields[field];
             }
-            if (Array.isArray(targetVal) && field === 'Length') {
+            if (Array.isArray(targetVal) && (field === 'Length' || field === 'length')) {
                 return targetVal.length;
             }
-            if (typeof targetVal === 'string' && field === 'Length') {
+            if (typeof targetVal === 'string' && (field === 'Length' || field === 'length')) {
                 return targetVal.length;
+            }
+            if (targetVal && targetVal._isMatrix && (field === 'Length' || field === 'length')) {
+                return targetVal.rows * targetVal.cols;
             }
         }
 
         // קריאה לפונקציה מקומית או סטטית: FuncName(args)
-        const funcCallMatch = expr.match(/^([A-Za-z0-9_]+)\s*\((.*)\)$/);
+        const funcCallMatch = expr.match(/^([A-Za-z0-9_]+)\s*\((.*)?\)$/s);
         if (funcCallMatch) {
             const funcName = funcCallMatch[1];
-            const rawArgs = funcCallMatch[2].trim();
+            const rawArgs = (funcCallMatch[2] || '').trim();
             const args = rawArgs.length > 0 ? this.splitArgs(rawArgs).map(a => this.evalExpr(a, scopeVars, line)) : [];
-            return this.callStaticOrLocalFunction(funcName, args, line);
+            return this.callStaticOrLocalFunction(funcName, args, line, scopeVars);
         }
 
         // ביטוי בינארי: חיבור, חיסור, כפל, חילוק, מודולו, השוואות
@@ -1212,9 +1344,19 @@ class Runtime10thEnvironment {
         };
         this.heap.set(heapId, instance);
 
-        // הפעלת בנאי
+        // הפעלת בנאי - בחירה לפי מספר פרמטרים (Overload Resolution)
         if (cls.constructors.length > 0) {
-            const ctor = cls.constructors[0];
+            // מחפש בנאי עם מספר פרמטרים תואם בדיוק
+            let ctor = cls.constructors.find(c => c.params.length === args.length);
+            // אם לא נמצא, מחפש בנאי עם פחות פרמטרים (יקבל null על הפרמטרים החסרים)
+            if (!ctor) {
+                ctor = cls.constructors.find(c => c.params.length <= args.length);
+            }
+            // ברירת מחדל: הבנאי הראשון
+            if (!ctor) {
+                ctor = cls.constructors[0];
+            }
+
             const ctorVars = { 'this': instance };
             if (ctor.params) {
                 for (let i = 0; i < ctor.params.length; i++) {
@@ -1227,7 +1369,7 @@ class Runtime10thEnvironment {
                 file: ctor.fileName,
                 variables: ctorVars
             });
-            this.executeBlock(ctor.body, ctor.line, ctor.fileName, ctorVars);
+            this.executeBlock(ctor.body, ctor.bodyOffset, ctor.fileName, ctorVars);
             this.callStack.pop();
         }
 
@@ -1235,11 +1377,18 @@ class Runtime10thEnvironment {
         return instance;
     }
 
-    callStaticOrLocalFunction(funcName, args, line) {
+    callStaticOrLocalFunction(funcName, args, line, scopeVars) {
+        // חיפוש מתודה בכל המחלקות
         for (const cls of this.ast.classes) {
             for (const m of cls.methods) {
                 if (m.name === funcName) {
-                    return this.invokeMethod(cls, m, null, args);
+                    // מתודה סטטית: קריאה ישירה ללא thisRef
+                    if (m.isStatic) {
+                        return this.invokeMethod(cls, m, null, args);
+                    }
+                    // מתודה של מופע: ניסיון למצוא this בסביבה הנוכחית
+                    const thisRef = scopeVars && scopeVars['this'] ? scopeVars['this'] : null;
+                    return this.invokeMethod(cls, m, thisRef, args);
                 }
             }
         }
@@ -1594,12 +1743,79 @@ class Runtime10thEnvironment {
         const objects = [];
         const activePointers = {};
 
+        const heapMap = new Map();
+
+        // 1. מעקב אחר כל האובייקטים הקיימים במערכת מ-this.heap
+        for (const [heapId, inst] of this.heap.entries()) {
+            if (inst && inst._heapId) {
+                heapMap.set(heapId, {
+                    heapId: heapId,
+                    className: inst.className,
+                    fields: { ...inst.fields },
+                    refs: []
+                });
+            }
+        }
+
+        // 2. זיהוי אובייקטים ישירים ב-currentScope
+        for (const [varName, val] of Object.entries(currentScope)) {
+            if (val && typeof val === 'object' && val._heapId) {
+                if (!heapMap.has(val._heapId)) {
+                    heapMap.set(val._heapId, {
+                        heapId: val._heapId,
+                        className: val.className,
+                        fields: { ...val.fields },
+                        refs: varName === 'this' ? [] : [varName]
+                    });
+                } else if (varName !== 'this') {
+                    const entry = heapMap.get(val._heapId);
+                    if (!entry.refs.includes(varName)) entry.refs.push(varName);
+                }
+            }
+        }
+
+        // 3. זיהוי מערכים חד-ממדיים, מטריצות, מחרוזות ומשתנים פעילים
         for (const [varName, val] of Object.entries(currentScope)) {
             if (Array.isArray(val)) {
+                let elemType = val._elemType;
+                if (!elemType) {
+                    const firstNonNull = val.find(x => x !== null && x !== undefined);
+                    if (firstNonNull && firstNonNull._heapId) {
+                        elemType = firstNonNull.className;
+                    } else if (firstNonNull && typeof firstNonNull === 'string') {
+                        elemType = 'string';
+                    } else if (firstNonNull && typeof firstNonNull === 'boolean') {
+                        elemType = 'bool';
+                    } else if (firstNonNull && typeof firstNonNull === 'number') {
+                        elemType = Number.isInteger(firstNonNull) ? 'int' : 'double';
+                    } else {
+                        elemType = 'int';
+                    }
+                }
+
+                // רישום הפניות של איברי המערך לאובייקטים ב-Heap
+                val.forEach((item, idx) => {
+                    if (item && typeof item === 'object' && item._heapId) {
+                        const refName = `${varName}[${idx}]`;
+                        if (!heapMap.has(item._heapId)) {
+                            heapMap.set(item._heapId, {
+                                heapId: item._heapId,
+                                className: item.className,
+                                fields: { ...item.fields },
+                                refs: [refName]
+                            });
+                        } else {
+                            const entry = heapMap.get(item._heapId);
+                            if (!entry.refs.includes(refName)) entry.refs.push(refName);
+                        }
+                    }
+                });
+
                 arrays1D.push({
                     name: varName,
+                    elemType: elemType,
                     length: val.length,
-                    items: [...val]
+                    items: val.map(item => (item && typeof item === 'object') ? JSON.parse(JSON.stringify(item)) : item)
                 });
             } else if (val && val._isMatrix) {
                 matrices2D.push({
@@ -1616,19 +1832,22 @@ class Runtime10thEnvironment {
                     chars: val.split(''),
                     length: val.length
                 });
-            } else if (val && val._heapId) {
-                objects.push({
-                    varName: varName,
-                    heapId: val._heapId,
-                    className: val.className,
-                    fields: { ...val.fields }
-                });
             } else if (typeof val === 'number') {
                 // משתני אינדקס נפוצים (i, j, min, max, left, right וכו')
                 if (/^(i|j|k|row|col|idx|min|max|left|right|mid|count|pos)/i.test(varName)) {
                     activePointers[varName] = val;
                 }
             }
+        }
+
+        // המרת heapMap לרשימת objects מסודרת
+        for (const entry of heapMap.values()) {
+            objects.push({
+                varName: entry.refs.length > 0 ? entry.refs.join(', ') : `#${entry.heapId}`,
+                heapId: entry.heapId,
+                className: entry.className,
+                fields: { ...entry.fields }
+            });
         }
 
         // עדכון טבלת המעקב
@@ -1654,6 +1873,9 @@ class Runtime10thEnvironment {
                 variables: { ...c.variables }
             })),
             variables: currentScope,
+            condition: extra.condition || null,
+            output: extra.output || null,
+            iteration: extra.iteration !== undefined ? extra.iteration : null,
             arrays1D: arrays1D,
             matrices2D: matrices2D,
             strings: strings,

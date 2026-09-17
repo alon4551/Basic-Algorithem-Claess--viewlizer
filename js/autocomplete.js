@@ -8,18 +8,21 @@ class CSharp10thAutocomplete {
         this.textarea = textarea;
         this.box = suggestionsBox;
         this.keywords = [
-            { text: 'for', display: 'for (לולאה ספורה)', snippet: 'for (int i = 0; i < $1; i++)\n{\n    $0\n}' },
-            { text: 'formatrix', display: 'for מקונן לסריקת מטריצה', snippet: 'for (int i = 0; i < mat.GetLength(0); i++)\n{\n    for (int j = 0; j < mat.GetLength(1); j++)\n    {\n        $0\n    }\n}' },
-            { text: 'while', display: 'while (לולאת תנאי)', snippet: 'while ($1)\n{\n    $0\n}' },
-            { text: 'if', display: 'if (תנאי)', snippet: 'if ($1)\n{\n    $0\n}' },
-            { text: 'ifelse', display: 'if / else', snippet: 'if ($1)\n{\n    $2\n}\nelse\n{\n    $0\n}' },
+            { text: 'for', display: 'for (int i = 0; i < n; i++) לולאה ספורה', snippet: 'for (int i = 0; i < $1; i++)\n{\n    $0\n}' },
+            { text: 'forarr', display: 'for (int i = 0; i < arr.Length; i++) סריקת מערך', snippet: 'for (int i = 0; i < arr.Length; i++)\n{\n    $0\n}' },
+            { text: 'formatrix', display: 'for מקונן לסריקת מטריצה 2D', snippet: 'for (int i = 0; i < mat.GetLength(0); i++)\n{\n    for (int j = 0; j < mat.GetLength(1); j++)\n    {\n        $0\n    }\n}' },
+            { text: 'while', display: 'while (condition) לולאת תנאי', snippet: 'while ($1)\n{\n    $0\n}' },
+            { text: 'if', display: 'if (condition) משפט תנאי', snippet: 'if ($1)\n{\n    $0\n}' },
+            { text: 'ifelse', display: 'if / else תנאי מלא', snippet: 'if ($1)\n{\n    $2\n}\nelse\n{\n    $0\n}' },
             { text: 'cw', display: 'Console.WriteLine(...) הדפסה עם ירידת שורה', snippet: 'Console.WriteLine($0);' },
             { text: 'cr', display: 'Console.ReadLine() קליטת מחרוזת', snippet: 'Console.ReadLine()' },
             { text: 'cprint', display: 'Console.Write(...) הדפסה באותה שורה', snippet: 'Console.Write($0);' },
-            { text: 'parseint', display: 'int.Parse(Console.ReadLine()) קליטת מספר שלם', snippet: 'int.Parse(Console.ReadLine())' },
+            { text: 'parseint', display: 'int.Parse(Console.ReadLine()) קליטת שלם', snippet: 'int.Parse(Console.ReadLine())' },
+            { text: 'parsedouble', display: 'double.Parse(Console.ReadLine()) קליטת עשרוני', snippet: 'double.Parse(Console.ReadLine())' },
             { text: 'arr', display: 'int[] arr = new int[size]; מערך חד-ממדי', snippet: 'int[] arr = new int[$1];$0' },
+            { text: 'newarr', display: 'int[] arr = new int[] { ... }; מערך מאותחל', snippet: 'int[] arr = new int[] { $1 };$0' },
             { text: 'mat', display: 'int[,] mat = new int[rows, cols]; מטריצה דו-ממדית', snippet: 'int[,] mat = new int[$1, $2];$0' },
-            { text: 'matrix', display: 'מטריצה מאותחלת ערכים', snippet: 'int[,] mat = {\n    { $1, $2 },\n    { $3, $4 }\n};$0' },
+            { text: 'matrix', display: 'int[,] mat = { {...}, {...} }; מטריצה מאותחלת', snippet: 'int[,] mat = {\n    { $1, $2 },\n    { $3, $4 }\n};$0' },
             { text: 'class', display: 'הגדרת מחלקה עם בנאי ושדות', snippet: 'public class $1\n{\n    public $2;\n    \n    public $1()\n    {\n        $0\n    }\n}' },
             { text: 'func', display: 'פונקציה סטטית public static void/int', snippet: 'public static $1 $2($3)\n{\n    $0\n}' },
             { text: 'Math.Max', display: 'Math.Max(a, b) מקסימום', snippet: 'Math.Max($1, $2)$0' },
@@ -28,14 +31,23 @@ class CSharp10thAutocomplete {
             { text: 'Math.Pow', display: 'Math.Pow(base, exp) חזקה', snippet: 'Math.Pow($1, $2)$0' },
             { text: 'Math.Sqrt', display: 'Math.Sqrt(x) שורש ריבועי', snippet: 'Math.Sqrt($1)$0' },
             { text: 'Substring', display: 'str.Substring(start, length) תת-מחרוזת', snippet: 'Substring($1, $2)$0' },
-            { text: 'IndexOf', display: 'str.IndexOf(char/string) חיפוש תו', snippet: 'IndexOf($1)$0' },
-            { text: 'Length', display: '.Length אורך מערך / מחרוזת', snippet: 'Length' },
-            { text: 'GetLength', display: 'mat.GetLength(dim) ממד מטריצה', snippet: 'GetLength($1)$0' },
-            { text: 'int', display: 'int מספר שלם', snippet: 'int ' },
-            { text: 'double', display: 'double מספר ממשי', snippet: 'double ' },
-            { text: 'string', display: 'string מחרוזת', snippet: 'string ' },
-            { text: 'char', display: 'char תו בודד', snippet: 'char ' },
-            { text: 'bool', display: 'bool בוליאני (true/false)', snippet: 'bool ' }
+            { text: 'IndexOf', display: 'str.IndexOf(char/string) מיקום תו', snippet: 'IndexOf($1)$0' },
+            { text: 'Contains', display: 'str.Contains(text) בדיקת הכלה', snippet: 'Contains($1)$0' },
+            { text: 'ToUpper', display: 'str.ToUpper() אותיות גדולות', snippet: 'ToUpper()$0' },
+            { text: 'ToLower', display: 'str.ToLower() אותיות קטנות', snippet: 'ToLower()$0' },
+            { text: 'Length', display: '.Length אורך מערך או מחרוזת', snippet: 'Length' },
+            { text: 'length', display: '.Length אורך מערך או מחרוזת', snippet: 'Length' },
+            { text: 'GetLength', display: 'mat.GetLength(dim) גודל ממד במטריצה', snippet: 'GetLength($1)$0' },
+            { text: 'int', display: 'int טיפוס שלם', snippet: 'int ' },
+            { text: 'double', display: 'double טיפוס ממשי', snippet: 'double ' },
+            { text: 'string', display: 'string טיפוס מחרוזת', snippet: 'string ' },
+            { text: 'char', display: 'char טיפוס תו בודד', snippet: 'char ' },
+            { text: 'bool', display: 'bool בוליאני (true/false)', snippet: 'bool ' },
+            { text: 'true', display: 'true אמת', snippet: 'true' },
+            { text: 'false', display: 'false שקר', snippet: 'false' },
+            { text: 'return', display: 'return ערך החזרה', snippet: 'return $0;' },
+            { text: 'break', display: 'break יציאה מלולאה', snippet: 'break;' },
+            { text: 'continue', display: 'continue מעבר לאיטרציה הבאה', snippet: 'continue;' }
         ];
 
         this.selectedIndex = 0;
@@ -48,9 +60,21 @@ class CSharp10thAutocomplete {
 
         this.textarea.addEventListener('keydown', (e) => this.handleKeyDown(e));
         this.textarea.addEventListener('input', () => this.handleInput());
-        document.addEventListener('click', (e) => {
-            if (!this.box.contains(e.target) && e.target !== this.textarea) {
+
+        // סגירה כאשר לוחצים בכל מקום מחוץ לחלון ההשלמה האוטומטית
+        document.addEventListener('mousedown', (e) => {
+            if (this.box.style.display !== 'none' && !this.box.contains(e.target)) {
                 this.hide();
+            }
+        });
+
+        // סגירה כאשר החלון מאבד פוקוס
+        window.addEventListener('blur', () => this.hide());
+
+        // עדכון מיקום החלון בעת גלילת הטקסט
+        this.textarea.addEventListener('scroll', () => {
+            if (this.box.style.display !== 'none') {
+                this.updatePosition();
             }
         });
     }
@@ -170,7 +194,40 @@ class CSharp10thAutocomplete {
         }
     }
 
+    updatePosition() {
+        if (!this.textarea || !this.box) return;
+
+        const pos = this.textarea.selectionStart || 0;
+        const textBefore = this.textarea.value.substring(0, pos);
+        const lines = textBefore.split('\n');
+        const lineIndex = lines.length - 1;
+        const colIndex = lines[lineIndex].length;
+
+        // חישוב גובה שורה ורוחב תו מוערך לעורך קוד
+        const lineHeight = 23.2;
+        const charWidth = 8.5;
+        const paddingOffset = 10;
+        const lineNumGutter = 48;
+
+        const computedTop = paddingOffset + ((lineIndex + 1) * lineHeight) - this.textarea.scrollTop;
+        const computedLeft = lineNumGutter + (colIndex * charWidth) - this.textarea.scrollLeft;
+
+        const editorHeight = this.textarea.clientHeight || 400;
+        const editorWidth = this.textarea.clientWidth || 600;
+
+        let top = computedTop + 4;
+        if (top + 220 > editorHeight && computedTop - 220 > 0) {
+            top = computedTop - lineHeight - 210;
+        }
+
+        let left = Math.max(50, Math.min(computedLeft, editorWidth - 270));
+
+        this.box.style.top = `${Math.max(4, top)}px`;
+        this.box.style.left = `${left}px`;
+    }
+
     show() {
+        this.updatePosition();
         this.box.style.display = 'block';
     }
 
