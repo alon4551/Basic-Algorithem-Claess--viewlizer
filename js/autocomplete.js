@@ -1,6 +1,6 @@
 /**
  * Autocomplete & Code Snippets for 10th Grade C# Fundamentals
- * מרכז מדעי המחשב - בית ספר מקיף דוד טוביהו | אלון שרייבמן
+ * אלון שרייבמן — מורה פרטי
  */
 
 class CSharp10thAutocomplete {

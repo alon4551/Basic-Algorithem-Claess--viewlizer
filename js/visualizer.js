@@ -1,6 +1,6 @@
 /**
  * 10th Grade C# Fundamentals Visualizer UI Controller
- * מרכז מדעי המחשב - בית ספר מקיף דוד טוביהו | אלון שרייבמן
+ * אלון שרייבמן — מורה פרטי
  */
 
 class Visualizer10thApp {
