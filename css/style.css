@@ -415,6 +415,7 @@ body {
     overflow-x: auto;
     gap: 0.25rem;
     flex-shrink: 0;
+    direction: ltr;
 }
 
 .tab-file {
@@ -487,6 +488,7 @@ body {
     right: 0;
     bottom: 0;
     display: flex;
+    direction: ltr;
 }
 
 .line-numbers {
