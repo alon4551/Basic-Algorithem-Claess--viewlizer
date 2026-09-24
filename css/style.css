@@ -334,21 +334,23 @@ body {
     height: calc(100vh - 105px);
     overflow: hidden;
     position: relative;
-    padding: 0.4rem 1rem 0.5rem;
+    padding: 0 0.5rem 0.5rem 0.5rem;
 }
 
 /* עמודת עורך הקוד (משמאל) */
 .editor-panel {
     flex: 0 0 46%;
-    min-width: 340px;
+    min-width: 320px;
     display: flex;
     flex-direction: column;
     background: #ffffff;
-    border-right: 1px solid var(--border);
-    border-left: none;
+    border: 1px solid var(--border);
     height: 100%;
+    margin: 0.25rem 0.35rem 0.25rem 0.4rem;
+    border-radius: 12px;
     overflow: hidden;
     direction: rtl; /* ממשק עברית בתוך העורך */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
 }
 
 /* פס גרירה ושינוי גודל בין העורך לבמה (Horizontal Resizer) */
@@ -363,6 +365,8 @@ body {
     align-items: center;
     justify-content: center;
     z-index: 10;
+    margin: 0.25rem 0.15rem;
+    border-radius: 4px;
 }
 
 .resizer-h::after {
@@ -388,11 +392,13 @@ body {
 /* עמודת ההמחשה הויזואלית (מימין) */
 .visual-panel {
     flex: 1;
-    min-width: 420px;
+    min-width: 400px;
     display: flex;
     flex-direction: column;
     background: var(--bg-main);
     height: 100%;
+    margin: 0.25rem 0.4rem 0.25rem 0.35rem;
+    border-radius: 12px;
     overflow-y: auto;
     padding: 0.65rem;
     gap: 0.65rem;
@@ -405,7 +411,7 @@ body {
     align-items: center;
     background: #1e1e2e;
     border-bottom: 1px solid #313244;
-    padding: 0.25rem 0.5rem 0 0.5rem;
+    padding: 0.35rem 0.75rem 0 0.75rem;
     overflow-x: auto;
     gap: 0.25rem;
     flex-shrink: 0;
@@ -487,7 +493,7 @@ body {
     width: 44px;
     background: #181825;
     color: #585b70;
-    padding: 0.65rem 0.3rem 0.65rem 0;
+    padding: 0.85rem 0.3rem;
     text-align: center;
     user-select: none;
     font-size: 0.82rem;
@@ -510,7 +516,7 @@ body {
     color: var(--code-text);
     border: none;
     outline: none;
-    padding: 0.65rem 0.85rem;
+    padding: 0.85rem 1rem;
     resize: none;
     font-family: inherit;
     font-size: inherit;
@@ -537,7 +543,7 @@ body {
 .controls-bar {
     background: #181825;
     border-top: 1px solid #313244;
-    padding: 0.45rem 0.85rem;
+    padding: 0.55rem 0.95rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1826,5 +1832,33 @@ body {
     color: var(--primary);
     font-weight: 700;
 }
+
+/* התאמה רספונסיבית לטאבלט ולמסכים קטנים */
+@media (max-width: 1024px) {
+    .main-layout {
+        flex-direction: column !important;
+        height: auto !important;
+        overflow: visible !important;
+        padding: 0.35rem 0.5rem;
+    }
+
+    .resizer-h {
+        display: none !important;
+    }
+
+    .editor-panel {
+        flex: 1 1 auto !important;
+        width: 100% !important;
+        min-height: 480px;
+        margin: 0.35rem 0;
+    }
+
+    .visual-panel {
+        width: 100% !important;
+        min-height: 500px;
+        margin: 0.35rem 0;
+    }
+}
+
 
 

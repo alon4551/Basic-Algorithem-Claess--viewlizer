@@ -614,10 +614,23 @@ class Visualizer10thApp {
 
         const onMove = (clientX) => {
             if (!isResizing) return;
-            const containerWidth = document.querySelector('.main-layout').offsetWidth;
-            const newEditorWidth = Math.max(260, Math.min(containerWidth - 280, clientX));
-            const percentage = (newEditorWidth / containerWidth) * 100;
-            this.dom.editorPanel.style.flex = `0 0 ${percentage}%`;
+            const container = document.querySelector('.main-layout');
+            if (!container) return;
+            const containerRect = container.getBoundingClientRect();
+            const containerWidth = containerRect.width;
+            if (containerWidth <= 0) return;
+
+            // In 10th grade, layout is direction: ltr.
+            // Editor is on the left, visual stage is on the right.
+            const relativeX = clientX - containerRect.left;
+            
+            // Keep safe margins: min editor 280px, min visual 320px
+            const minEditor = 280;
+            const maxEditor = Math.max(minEditor + 40, containerWidth - 320);
+            const clamped = Math.max(minEditor, Math.min(maxEditor, relativeX));
+            
+            const percentage = (clamped / containerWidth) * 100;
+            this.dom.editorPanel.style.flex = `0 0 ${percentage.toFixed(2)}%`;
             try {
                 localStorage.setItem('agy_10th_editor_width_ratio', percentage.toFixed(2));
             } catch (e) {}
