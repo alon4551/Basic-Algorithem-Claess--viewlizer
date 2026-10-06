@@ -49,11 +49,12 @@ body {
     overflow: hidden;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 900px), (max-width: 1024px) and (orientation: portrait) {
     body {
         height: auto;
         min-height: 100vh;
         overflow-y: auto;
+        overflow-x: hidden;
     }
 }
 
@@ -96,10 +97,43 @@ body {
     letter-spacing: -0.02em;
 }
 
-.brand-title p {
+.brand-title p,
+.brand-subtitle {
     font-size: 0.78rem;
     color: #94a3b8;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.45rem;
 }
+
+.header-wa-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: #25d366;
+    color: #ffffff !important;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.72rem;
+    padding: 0.12rem 0.55rem;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 4px rgba(37, 211, 102, 0.35);
+    line-height: 1.2;
+}
+
+.header-wa-link:hover {
+    background: #1eb857;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(37, 211, 102, 0.5);
+    color: #ffffff !important;
+}
+
+.header-wa-link .wa-icon {
+    flex-shrink: 0;
+}
+
 
 /* סרגל מעבר בין אתרי הלמידה (Cross-Studio Portal Switcher) */
 .portal-nav-bar {
@@ -1835,30 +1869,317 @@ body {
     font-weight: 700;
 }
 
-/* התאמה רספונסיבית לטאבלט ולמסכים קטנים */
-@media (max-width: 1024px) {
+/* =======================================================
+   התאמה רספונסיבית לטאבלט ולסמארטפון (Mobile & Tablet Friendly)
+   ======================================================= */
+
+/* --- התאמת סרגל עליון (Header) ומניעת חריגה במסכי טאבלט (עד 1280px) --- */
+@media (max-width: 1280px) {
+    .app-header {
+        padding: 0.35rem 0.85rem;
+    }
+
+    .header-inner {
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .brand-title {
+        gap: 0.5rem;
+    }
+
+    .brand-icon {
+        font-size: 1.35rem;
+        padding: 0.2rem 0.45rem;
+    }
+
+    .brand-title h1 {
+        font-size: 1.05rem;
+        white-space: nowrap;
+    }
+
+    .brand-title p {
+        font-size: 0.72rem;
+    }
+
+    .portal-nav-bar {
+        padding: 2px 4px;
+        gap: 3px;
+        border-radius: 18px;
+    }
+
+    .portal-nav-link {
+        padding: 0.22rem 0.52rem;
+        font-size: 0.74rem;
+        gap: 4px;
+        border-radius: 14px;
+    }
+
+    .portal-nav-icon {
+        font-size: 0.8rem;
+    }
+
+    .studio-mode-bar {
+        padding: 0.2rem 0.35rem;
+        gap: 0.25rem;
+        border-radius: 20px;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .studio-mode-bar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .btn-studio-mode {
+        padding: 0.2rem 0.45rem;
+        font-size: 0.72rem;
+        gap: 0.2rem;
+        flex-shrink: 0;
+    }
+
+    .quick-setup-bar {
+        padding: 0.25rem 0.65rem;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+    }
+
+    .preset-select {
+        max-width: 240px;
+        font-size: 0.75rem;
+        padding: 0.2rem 0.4rem;
+    }
+
+    .btn-quick {
+        font-size: 0.74rem;
+        padding: 0.2rem 0.45rem;
+    }
+
+    .btn-lang-pill {
+        padding: 0.18rem 0.55rem;
+        font-size: 0.74rem;
+    }
+}
+
+/* --- טאבלטים במצב מאוזן / שוכב (Tablet Landscape: 901px עד 1280px) --- */
+@media (min-width: 901px) and (max-width: 1280px) and (orientation: landscape),
+       (min-width: 901px) and (max-width: 1280px) and (max-height: 850px) {
+    body {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .app-header {
+        padding: 0.3rem 0.85rem;
+    }
+
     .main-layout {
+        display: flex !important;
+        flex-direction: row !important;
+        height: calc(100vh - 92px) !important;
+        margin: 0.15rem auto 0 !important;
+        padding: 0 0.5rem 0.35rem !important;
+        overflow: hidden !important;
+        gap: 0.35rem !important;
+    }
+
+    .resizer-h {
+        display: flex !important;
+        width: 8px !important;
+    }
+
+    .editor-panel {
+        flex: 0 0 44% !important;
+        width: auto !important;
+        min-width: 310px !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+    }
+
+    .visual-panel {
+        flex: 1 !important;
+        width: auto !important;
+        min-width: 350px !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        margin: 0 !important;
+    }
+
+    .editor-tabs-bar {
+        min-height: 36px;
+        padding: 0.25rem 0.55rem 0;
+    }
+
+    .code-textarea {
+        font-size: 13.5px;
+        line-height: 20px;
+    }
+
+    .controls-bar {
+        padding: 0.4rem 0.75rem;
+    }
+
+    .btn-ctrl {
+        padding: 0.28rem 0.6rem;
+        font-size: 0.78rem;
+    }
+
+    .speed-control {
+        font-size: 0.75rem;
+    }
+
+    .speed-control input[type="range"] {
+        width: 65px;
+    }
+
+    .step-badge {
+        font-size: 0.72rem;
+    }
+
+    .status-banner {
+        padding: 0.35rem 0.75rem;
+        font-size: 0.78rem;
+    }
+}
+
+/* --- טאבלט במצב מאונך / עומד (Tablet Portrait: עד 900px או 1024px במצב Portrait) --- */
+@media (max-width: 900px), (max-width: 1024px) and (orientation: portrait) {
+    body {
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .app-header {
+        padding: 0.4rem 0.75rem;
+    }
+
+    .header-inner {
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        justify-content: space-between;
+    }
+
+    .studio-mode-bar {
+        width: 100%;
+        max-width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 0.2rem 0.35rem;
+        scrollbar-width: none;
+    }
+
+    .studio-mode-bar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .quick-setup-bar {
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        padding: 0.35rem 0.5rem;
+    }
+
+    /* פריסה ראשית במצב עומד: עורך קוד עליון (זהה בכל האתרים), במת המחשה תחתונה */
+    .main-layout {
+        display: flex !important;
         flex-direction: column !important;
         height: auto !important;
         overflow: visible !important;
-        padding: 0.35rem 0.5rem;
+        gap: 0.5rem;
+        padding: 0.35rem 0.5rem 0.85rem 0.5rem;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .resizer-h {
         display: none !important;
     }
 
+    /* עמודת עורך הקוד - בראש הדף, גובה 480px קבוע וזהה בין כל האתרים */
     .editor-panel {
-        flex: 1 1 auto !important;
         width: 100% !important;
-        min-height: 480px;
-        margin: 0.35rem 0;
+        height: 480px !important;
+        min-height: 480px !important;
+        margin: 0 !important;
+        flex: 0 0 auto !important;
+        box-sizing: border-box;
+        border-radius: 12px;
+        overflow: hidden;
     }
 
+    /* עמודת במת ההמחשה - מתחת לעורך הקוד */
     .visual-panel {
         width: 100% !important;
-        min-height: 500px;
-        margin: 0.35rem 0;
+        min-width: 0 !important;
+        height: auto !important;
+        min-height: 480px;
+        margin: 0 !important;
+        overflow: visible !important;
+        box-sizing: border-box;
+    }
+
+    /* התאמת פנים העורך במצב עומד - גובה וגופנים זהים בין כל האתרים */
+    .editor-tabs-bar {
+        padding: 0.3rem 0.5rem 0;
+        min-height: 38px;
+    }
+
+    .btn-add-tab {
+        font-size: 0.74rem;
+        padding: 0.2rem 0.45rem;
+    }
+
+    .line-numbers {
+        width: 40px;
+        font-size: 12.5px;
+        line-height: 20px;
+        padding: 0.75rem 0.2rem;
+    }
+
+    .code-textarea {
+        font-size: 13.5px;
+        line-height: 20px;
+        padding: 0.75rem 0.85rem;
+    }
+
+    .controls-bar {
+        padding: 0.45rem 0.75rem;
+        gap: 0.4rem;
+    }
+
+    .playback-buttons {
+        gap: 0.3rem;
+    }
+
+    .btn-ctrl {
+        padding: 0.3rem 0.65rem;
+        font-size: 0.78rem;
+    }
+
+    .speed-control {
+        font-size: 0.75rem;
+        gap: 0.35rem;
+    }
+
+    .speed-control input[type="range"] {
+        width: 65px;
+    }
+
+    .step-badge {
+        font-size: 0.72rem;
+        padding: 0.15rem 0.45rem;
+    }
+
+    .status-banner {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.78rem;
     }
 }
 
