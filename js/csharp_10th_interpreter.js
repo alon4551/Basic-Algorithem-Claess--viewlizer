@@ -427,6 +427,7 @@ class Runtime10thEnvironment {
             }
         }
 
+        const savedCallerFile = this.currentFile;
         const callStackEntry = {
             funcName: `${targetClass ? targetClass.name + '.' : ''}${method.name}`,
             line: method.line,
@@ -441,6 +442,7 @@ class Runtime10thEnvironment {
 
         const result = this.executeBlock(method.body, method.bodyOffset, method.fileName, frameVars);
         this.callStack.pop();
+        this.currentFile = savedCallerFile;
         return result ? result.value : undefined;
     }
 
@@ -1559,10 +1561,20 @@ class Runtime10thEnvironment {
             throw { message: `המחלקה ${className} אינה מוגדרת בפרויקט`, line, file: this.currentFile };
         }
 
+        const callerFile = this.currentFile;
+        const argStrs = args.map(a => this.formatVal(a)).join(', ');
+
+        // 1. הצגת שורת הקוד שבה נוצר האובייקט בקובץ הקורא (לפני מעבר לבנאי)
+        this.recordFrame(line, `יצירת עצם חדש: new ${className}(${argStrs}) ➔ מעבר לבנאי המחלקה`);
+
         const heapId = this.nextHeapId++;
         const instanceFields = {};
         for (const f of cls.fields) {
-            instanceFields[f.name] = f.initVal ? this.evalExpr(f.initVal, {}, line) : 0;
+            let defVal = 0;
+            if (f.type === 'string' || f.type === 'String') defVal = '';
+            else if (f.type === 'bool' || f.type === 'boolean') defVal = false;
+            else if (f.type.includes('[') || this.ast.classes.some(c => c.name === f.type)) defVal = null;
+            instanceFields[f.name] = f.initVal ? this.evalExpr(f.initVal, {}, line) : defVal;
         }
 
         const instance = {
@@ -1572,8 +1584,8 @@ class Runtime10thEnvironment {
         };
         this.heap.set(heapId, instance);
 
-        // הפעלת בנאי - בחירה לפי מספר פרמטרים (Overload Resolution)
-        if (cls.constructors.length > 0) {
+        // 2. הפעלת בנאי (Constructor) - כניסה לקובץ המחלקה והצגת שורות הבנאי
+        if (cls.constructors && cls.constructors.length > 0) {
             // מחפש בנאי עם מספר פרמטרים תואם בדיוק
             let ctor = cls.constructors.find(c => c.params.length === args.length);
             // אם לא נמצא, מחפש בנאי עם פחות פרמטרים (יקבל null על הפרמטרים החסרים)
@@ -1597,11 +1609,22 @@ class Runtime10thEnvironment {
                 file: ctor.fileName,
                 variables: ctorVars
             });
+
+            // החלפת הקובץ הפעיל לקובץ המחלקה שבו נמצא הבנאי
+            this.currentFile = ctor.fileName;
+            this.recordFrame(ctor.line, `כניסה לבנאי של המחלקה: ${className}(${argStrs})`);
+
+            // ביצוע שורות הבנאי בזו אחר זו
             this.executeBlock(ctor.body, ctor.bodyOffset, ctor.fileName, ctorVars);
             this.callStack.pop();
+        } else {
+            // אם אין בנאי מפורש, הצגת קובץ המחלקה עם אתחול השדות
+            this.currentFile = cls.fileName;
+            this.recordFrame(cls.line, `אתחול שדות ברירת מחדל של המחלקה: ${className} (בנאי דיפולטיבי)`);
         }
 
-        this.recordFrame(line, `יצירת מופע חדש ב-Heap: new ${className}() [מזהה #${heapId}]`);
+        // 3. החזרת הקובץ הפעיל לקובץ הקורא (למשל Program.cs או Main.java)
+        this.currentFile = callerFile;
         return instance;
     }
 
