@@ -29,8 +29,10 @@ class CSharp10thInterpreter {
         }
     }
 
-    run(sourceCode, initialInputs = [], customWatchExpressions = []) {
-        this.setInputQueue(initialInputs);
+    run(sourceCode, initialInputs = null, customWatchExpressions = []) {
+        if (initialInputs !== null && initialInputs !== undefined && (Array.isArray(initialInputs) ? initialInputs.length > 0 : String(initialInputs).trim().length > 0)) {
+            this.setInputQueue(initialInputs);
+        }
         let runtime = null;
         try {
             const preprocessed = this.preprocess(sourceCode);
@@ -262,6 +264,9 @@ class Runtime10thEnvironment {
     constructor(ast, inputQueue, maxSteps = 1500, customWatchExpressions = []) {
         this.ast = ast;
         this.inputQueue = [...inputQueue];
+        this.consumedInputs = [];
+        this.currentInputIndex = 0;
+        this.lastInputEvent = null;
         this.maxSteps = maxSteps;
         this.stepCount = 0;
         this.frames = [];
@@ -929,14 +934,24 @@ class Runtime10thEnvironment {
                             else if (type.endsWith('[]')) rhsVal._elemType = type.slice(0, -2).trim();
                         }
                         scopeVars[varName] = rhsVal;
-                        this.recordFrame(line, `הצהרה והשמה: ${type} ${varName} = ${this.formatVal(rhsVal)}`);
+                        if (this.lastInputEvent && this.lastInputEvent.line === line) {
+                            this.lastInputEvent.target = varName;
+                            this.recordFrame(line, `📥 קליטת נתון והשמה: ${type} ${varName} = ${this.formatVal(rhsVal)} (קלט #${this.lastInputEvent.index + 1})`, { isInputStep: true, inputEvent: this.lastInputEvent });
+                        } else {
+                            this.recordFrame(line, `הצהרה והשמה: ${type} ${varName} = ${this.formatVal(rhsVal)}`);
+                        }
                         return;
                     }
                 }
 
                 // השמה למשתנה, תא במערך, מטריצה או שדה קיים
                 this.assignTargetValue(target, rhsVal, scopeVars, line);
-                this.recordFrame(line, `השמה: ${target} = ${this.formatVal(rhsVal)}`);
+                if (this.lastInputEvent && this.lastInputEvent.line === line) {
+                    this.lastInputEvent.target = target;
+                    this.recordFrame(line, `📥 קליטת נתון והשמה: ${target} = ${this.formatVal(rhsVal)} (קלט #${this.lastInputEvent.index + 1})`, { isInputStep: true, inputEvent: this.lastInputEvent });
+                } else {
+                    this.recordFrame(line, `השמה: ${target} = ${this.formatVal(rhsVal)}`);
+                }
                 return;
             }
         }
@@ -1147,23 +1162,77 @@ class Runtime10thEnvironment {
 
         // Console.ReadLine()
         if (expr.startsWith('Console.ReadLine')) {
-            const val = this.inputQueue.length > 0 ? this.inputQueue.shift() : '0';
-            this.recordFrame(line, `קליטת קלט מהמשתמש (Console.ReadLine): "${val}"`);
-            return val;
+            const inputIdx = this.currentInputIndex++;
+            const rawVal = this.inputQueue.length > 0 ? this.inputQueue.shift() : '0';
+            const inputEvent = {
+                index: inputIdx,
+                rawVal: String(rawVal),
+                parsedVal: String(rawVal),
+                type: 'string',
+                source: 'Console.ReadLine()',
+                line: line
+            };
+            this.consumedInputs.push(inputEvent);
+            this.lastInputEvent = inputEvent;
+            this.consoleOutputs.push(`> ${rawVal}`);
+            this.recordFrame(line, `📥 קליטת נתון מהמשתמש [קלט #${inputIdx + 1}]: "${rawVal}" (Console.ReadLine)`, {
+                isInputStep: true,
+                inputEvent: inputEvent,
+                output: `> ${rawVal}`
+            });
+            return String(rawVal);
         }
 
-        // int.Parse / Integer.parseInt / double.Parse / Double.parseDouble
+        // int.Parse / Integer.parseInt / Convert.ToInt32
         if (expr.startsWith('int.Parse(') || expr.startsWith('Convert.ToInt32(') || expr.startsWith('Integer.parseInt(')) {
             const inner = expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim();
             const val = this.evalExpr(inner, scopeVars, line);
             const res = parseInt(val, 10);
-            return isNaN(res) ? 0 : res;
+            const finalVal = isNaN(res) ? 0 : res;
+            if (this.lastInputEvent && (inner.includes('ReadLine') || inner.includes('next'))) {
+                this.lastInputEvent.type = 'int';
+                this.lastInputEvent.parsedVal = finalVal;
+            }
+            return finalVal;
         }
-        if (expr.startsWith('double.Parse(') || expr.startsWith('Convert.ToDouble(') || expr.startsWith('Double.parseDouble(')) {
+
+        // double.Parse / Convert.ToDouble / Double.parseDouble / float.Parse / Convert.ToSingle / Float.parseFloat
+        if (expr.startsWith('double.Parse(') || expr.startsWith('Convert.ToDouble(') || expr.startsWith('Double.parseDouble(') ||
+            expr.startsWith('float.Parse(') || expr.startsWith('Convert.ToSingle(') || expr.startsWith('Float.parseFloat(')) {
             const inner = expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim();
             const val = this.evalExpr(inner, scopeVars, line);
             const res = parseFloat(val);
-            return isNaN(res) ? 0.0 : res;
+            const finalVal = isNaN(res) ? 0.0 : res;
+            if (this.lastInputEvent && (inner.includes('ReadLine') || inner.includes('next'))) {
+                this.lastInputEvent.type = 'double';
+                this.lastInputEvent.parsedVal = finalVal;
+            }
+            return finalVal;
+        }
+
+        // char.Parse / Convert.ToChar
+        if (expr.startsWith('char.Parse(') || expr.startsWith('Convert.ToChar(')) {
+            const inner = expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim();
+            const val = this.evalExpr(inner, scopeVars, line);
+            const strVal = String(val !== undefined && val !== null ? val : '');
+            const finalVal = strVal.length > 0 ? strVal.charAt(0) : '\0';
+            if (this.lastInputEvent && (inner.includes('ReadLine') || inner.includes('next'))) {
+                this.lastInputEvent.type = 'char';
+                this.lastInputEvent.parsedVal = finalVal;
+            }
+            return finalVal;
+        }
+
+        // bool.Parse / Convert.ToBoolean / Boolean.parseBoolean
+        if (expr.startsWith('bool.Parse(') || expr.startsWith('Convert.ToBoolean(') || expr.startsWith('Boolean.parseBoolean(')) {
+            const inner = expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim();
+            const val = this.evalExpr(inner, scopeVars, line);
+            const finalVal = String(val).toLowerCase() === 'true';
+            if (this.lastInputEvent && (inner.includes('ReadLine') || inner.includes('next'))) {
+                this.lastInputEvent.type = 'bool';
+                this.lastInputEvent.parsedVal = finalVal;
+            }
+            return finalVal;
         }
 
         // new int[size] או new int[rows, cols] או new int[rows][cols]
@@ -1447,20 +1516,52 @@ class Runtime10thEnvironment {
                 // מתודה של מופע (instance method): eval the target object first
                 const targetVal = this.evalExpr(targetExpr, scopeVars, line);
                 if (targetVal && targetVal._isScanner) {
+                    if (methodName === 'hasNext' || methodName === 'hasNextInt' || methodName === 'hasNextDouble' || methodName === 'hasNextLine') {
+                        return this.inputQueue.length > 0;
+                    }
+                    if (methodName === 'close') {
+                        return null;
+                    }
+
+                    const inputIdx = this.currentInputIndex++;
                     const rawVal = this.inputQueue.length > 0 ? this.inputQueue.shift() : '0';
-                    this.recordFrame(line, `קליטת קלט מהמשתמש (${targetExpr}.${methodName}): "${rawVal}"`);
-                    if (methodName === 'nextInt') {
+                    let parsedVal = rawVal;
+                    let targetType = 'string';
+
+                    if (methodName === 'nextInt' || methodName === 'nextLong' || methodName === 'nextShort' || methodName === 'nextByte') {
                         const parsed = parseInt(rawVal, 10);
-                        return isNaN(parsed) ? 0 : parsed;
-                    }
-                    if (methodName === 'nextDouble') {
+                        parsedVal = isNaN(parsed) ? 0 : parsed;
+                        targetType = 'int';
+                    } else if (methodName === 'nextDouble' || methodName === 'nextFloat') {
                         const parsed = parseFloat(rawVal);
-                        return isNaN(parsed) ? 0.0 : parsed;
+                        parsedVal = isNaN(parsed) ? 0.0 : parsed;
+                        targetType = 'double';
+                    } else if (methodName === 'nextBoolean') {
+                        parsedVal = String(rawVal).toLowerCase() === 'true';
+                        targetType = 'bool';
+                    } else if (methodName === 'next' || methodName === 'nextLine') {
+                        parsedVal = String(rawVal);
+                        targetType = 'string';
                     }
-                    if (methodName === 'next' || methodName === 'nextLine') {
-                        return String(rawVal);
-                    }
-                    return rawVal;
+
+                    const inputEvent = {
+                        index: inputIdx,
+                        rawVal: String(rawVal),
+                        parsedVal: parsedVal,
+                        type: targetType,
+                        source: `${targetExpr}.${methodName}()`,
+                        line: line
+                    };
+                    this.consumedInputs.push(inputEvent);
+                    this.lastInputEvent = inputEvent;
+                    this.consoleOutputs.push(`> ${rawVal}`);
+
+                    this.recordFrame(line, `📥 קליטת נתון מהמשתמש [קלט #${inputIdx + 1}]: "${rawVal}" (${targetExpr}.${methodName})`, {
+                        isInputStep: true,
+                        inputEvent: inputEvent,
+                        output: `> ${rawVal}`
+                    });
+                    return parsedVal;
                 }
                 if (targetVal && typeof targetVal === 'object' && targetVal._heapId) {
                     const cls = this.ast.classes.find(c => c.name === targetVal.className);
@@ -2252,6 +2353,9 @@ class Runtime10thEnvironment {
             activePointers: activePointers,
             consoleOutputs: [...this.consoleOutputs],
             traceTableRows: [...this.traceTable],
+            isInputStep: !!extra.isInputStep,
+            inputEvent: extra.inputEvent || null,
+            consumedInputsCount: this.currentInputIndex,
             error: null,
             isCompleted: false
         };

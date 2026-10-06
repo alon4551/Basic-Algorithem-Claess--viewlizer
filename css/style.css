@@ -2183,5 +2183,193 @@ body {
     }
 }
 
+/* טבלת קלט נתונים (Input Table) */
+.input-table-card {
+    background: #ffffff;
+    border: 1.5px solid #0284c7;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+    flex-shrink: 0;
+    margin-bottom: 0.75rem;
+}
+
+.input-table-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.65rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.input-table-container {
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+.data-input-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+    text-align: right;
+    direction: rtl;
+}
+
+.data-input-table thead th {
+    position: sticky;
+    top: 0;
+    background: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    padding: 0.45rem 0.6rem;
+    border-bottom: 2px solid var(--border);
+    z-index: 2;
+}
+
+.data-input-table tbody td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.input-cell-val {
+    width: 100%;
+    padding: 0.25rem 0.45rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: #ffffff;
+    color: #0f172a;
+    direction: ltr;
+    text-align: left;
+}
+
+.input-cell-val:focus {
+    outline: none;
+    border-color: #0284c7;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+}
+
+.input-cell-type {
+    width: 100%;
+    padding: 0.2rem 0.35rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    background: #f8fafc;
+    direction: ltr;
+}
+
+.input-cell-note {
+    width: 100%;
+    padding: 0.2rem 0.45rem;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: #64748b;
+    background: transparent;
+}
+
+.input-cell-note:hover, .input-cell-note:focus {
+    border-color: #cbd5e1;
+    background: #ffffff;
+}
+
+.btn-input-row-del {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    opacity: 0.7;
+    transition: all 0.15s ease;
+}
+
+.btn-input-row-del:hover {
+    opacity: 1;
+    background: #fee2e2;
+}
+
+/* שורת קלט פעילה - זוהרת בצהוב/ציאן */
+.data-input-table tr.active-input-row {
+    background: #e0f2fe !important;
+    outline: 2px solid #0284c7;
+    box-shadow: 0 0 10px rgba(2, 132, 199, 0.3);
+    animation: pulseRowGlow 1.2s infinite alternate ease-in-out;
+}
+
+.data-input-table tr.active-input-row .input-cell-val {
+    border-color: #0284c7;
+    background: #f0f9ff;
+    font-weight: 700;
+}
+
+/* שורת קלט שנקלטה בעבר */
+.data-input-table tr.consumed-input-row {
+    background: #f8fafc;
+    opacity: 0.85;
+}
+
+@keyframes pulseRowGlow {
+    from {
+        background: #e0f2fe;
+    }
+    to {
+        background: #bae6fd;
+    }
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    font-size: 0.73rem;
+    font-weight: 600;
+}
+
+.status-pending {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.status-active {
+    background: #fef08a;
+    color: #854d0e;
+    border: 1px solid #facc15;
+}
+
+.status-consumed {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.active-line-highlight.active-input-line {
+    background: rgba(6, 182, 212, 0.32) !important;
+    border-left: 4px solid #06b6d4 !important;
+    box-shadow: inset 0 0 10px rgba(6, 182, 212, 0.4), 0 0 12px rgba(6, 182, 212, 0.5);
+    animation: pulseInputLineGlow 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes pulseInputLineGlow {
+    from {
+        background: rgba(6, 182, 212, 0.25);
+        box-shadow: inset 0 0 8px rgba(6, 182, 212, 0.3);
+    }
+    to {
+        background: rgba(6, 182, 212, 0.45);
+        box-shadow: inset 0 0 14px rgba(6, 182, 212, 0.6), 0 0 15px rgba(6, 182, 212, 0.7);
+    }
+}
+
+
 
 

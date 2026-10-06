@@ -58,6 +58,7 @@ class Visualizer10thApp {
 
     init() {
         this.cacheDom();
+        this.initInputTable();
         this.bindEvents();
         this.setupAutocomplete();
         this.updatePresetsDropdown();
@@ -66,6 +67,26 @@ class Visualizer10thApp {
         this.setupStageVerticalResizer();
         this.setupCardResizers();
         this.loadPreset('empty_main');
+    }
+
+    initInputTable() {
+        if (typeof InputTableManager !== 'undefined') {
+            this.inputTableManager = new InputTableManager({
+                containerId: 'card-input-table',
+                tbodyId: 'data-input-tbody',
+                countBadgeId: 'input-count-badge',
+                statusBadgeId: 'input-table-status-badge',
+                onInputsChanged: (inputs) => {
+                    this.interpreter.setInputQueue(inputs);
+                    this.recompile();
+                }
+            });
+            this.inputTableManager.onDetectRequest = () => {
+                const mainCode = this.editorFiles[this.activeFileName]?.code || '';
+                this.inputTableManager.autoPopulateIfEmpty(mainCode);
+                this.recompile();
+            };
+        }
     }
 
     cacheDom() {
@@ -949,6 +970,23 @@ class Visualizer10thApp {
             }
         }
 
+        // עדכון טבלת קלט נתונים לפי הפרסט או זיהוי אוטומטי
+        if (this.inputTableManager) {
+            if (preset.inputs && preset.inputs.length > 0) {
+                this.inputTableManager.setValues(preset.inputs);
+                this.inputTableManager.showCard();
+            } else {
+                const mainCode = this.editorFiles[this.activeFileName]?.code || '';
+                const hadInputs = this.inputTableManager.autoPopulateIfEmpty(mainCode);
+                if (hadInputs) {
+                    this.inputTableManager.showCard();
+                } else {
+                    this.inputTableManager.inputs = [];
+                    this.inputTableManager.render();
+                }
+            }
+        }
+
         this.recompile();
     }
 
@@ -1051,7 +1089,8 @@ class Visualizer10thApp {
         }
 
         const customWatches = Array.from(this.customWatchExpressions);
-        const traceResult = this.interpreter.run(codeFiles, [], customWatches);
+        const inputList = this.inputTableManager ? this.inputTableManager.getInputValues() : [];
+        const traceResult = this.interpreter.run(codeFiles, inputList, customWatches);
         this.frames = traceResult.frames || [];
         this.currentFrameIdx = 0;
 
@@ -1094,9 +1133,14 @@ class Visualizer10thApp {
 
         // הדגשת שורה נוכחית בעורך - רק אם הקובץ המוצג בעורך תואם לקובץ המסגרת
         if (!frame.file || frame.file === this.activeFileName) {
-            this.highlightActiveLine(frame.line);
+            this.highlightActiveLine(frame.line, frame.isInputStep);
         } else {
-            this.highlightActiveLine(0);
+            this.highlightActiveLine(0, false);
+        }
+
+        // עדכון שורת קלט בטבלת הקלט
+        if (this.inputTableManager) {
+            this.inputTableManager.updateStep(frame.consumedInputsCount || 0, frame.inputEvent);
         }
 
         // במת המחשה: 1D Arrays
@@ -1127,9 +1171,12 @@ class Visualizer10thApp {
         this.highlightTraceTableRow(idx);
     }
 
-    highlightActiveLine(lineNum) {
+    highlightActiveLine(lineNum, isInput = false) {
         if (!lineNum || lineNum <= 0 || !this.dom.activeLineHighlight || !this.dom.codeTextarea) {
-            if (this.dom.activeLineHighlight) this.dom.activeLineHighlight.style.display = 'none';
+            if (this.dom.activeLineHighlight) {
+                this.dom.activeLineHighlight.style.display = 'none';
+                this.dom.activeLineHighlight.classList.remove('active-input-line');
+            }
             if (this.dom.lineNumbers) {
                 const prev = this.dom.lineNumbers.querySelector('.active-line-num');
                 if (prev) prev.classList.remove('active-line-num');
@@ -1147,6 +1194,12 @@ class Visualizer10thApp {
         this.dom.activeLineHighlight.style.top = `${top}px`;
         this.dom.activeLineHighlight.style.height = `${lineHeight}px`;
         this.dom.activeLineHighlight.style.display = 'block';
+
+        if (isInput) {
+            this.dom.activeLineHighlight.classList.add('active-input-line');
+        } else {
+            this.dom.activeLineHighlight.classList.remove('active-input-line');
+        }
 
         // הדגשת מספר השורה בסרגל מספרי השורות
         if (this.dom.lineNumbers) {

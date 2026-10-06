@@ -263,6 +263,37 @@ const PRESETS_10TH_CS = {
     }
 }`
         }
+    },
+
+    'input_loop_grades': {
+        id: 'input_loop_grades',
+        title: '7. קלט נתונים בלולאה: קליטת ציונים וממוצע (Console.ReadLine)',
+        category: 'arrays',
+        categoryName: 'קלט ולולאות',
+        description: 'קליטת מספר ציונים ולאחריה לולאת קלט עם int.Parse(Console.ReadLine()) לחישוב סכום וממוצע.',
+        inputs: ['5', '85', '92', '78', '90', '88'],
+        files: {
+            'Program.cs': `public class Program
+{
+    public static void Main()
+    {
+        Console.WriteLine("כמה ציונים ברצונך להזין?");
+        int count = int.Parse(Console.ReadLine());
+        int sum = 0;
+        
+        for (int i = 0; i < count; i++)
+        {
+            Console.WriteLine("הזן ציון מספר " + (i + 1) + ":");
+            int grade = int.Parse(Console.ReadLine());
+            sum += grade;
+        }
+        
+        double avg = (double)sum / count;
+        Console.WriteLine("סכום הציונים: " + sum);
+        Console.WriteLine("ממוצע הציונים: " + avg);
+    }
+}`
+        }
     }
 };
 
@@ -488,6 +519,40 @@ const PRESETS_10TH_JAVA = {
         for (int c = 0; c < candidate.length; c++) {
             System.out.println("מועמד " + (c + 1) + ": " + candidate[c] + " קולות");
         }
+    }
+}`
+        }
+    },
+
+    'input_loop_grades': {
+        id: 'input_loop_grades',
+        title: '7. קלט נתונים בלולאה: קליטת ציונים וממוצע (Scanner.nextInt)',
+        category: 'arrays',
+        categoryName: 'קלט ולולאות',
+        description: 'קליטת מספר ציונים ולאחריה לולאת קלט עם in.nextInt() מסורק Scanner לחישוב סכום וממוצע.',
+        inputs: ['5', '85', '92', '78', '90', '88'],
+        files: {
+            'Program.java': `import java.util.Scanner;
+
+public class Program
+{
+    public static void main(String[] args)
+    {
+        Scanner in = new Scanner(System.in);
+        System.out.println("כמה ציונים ברצונך להזין?");
+        int count = in.nextInt();
+        int sum = 0;
+        
+        for (int i = 0; i < count; i++)
+        {
+            System.out.println("הזן ציון מספר " + (i + 1) + ":");
+            int grade = in.nextInt();
+            sum += grade;
+        }
+        
+        double avg = (double)sum / count;
+        System.out.println("סכום הציונים: " + sum);
+        System.out.println("ממוצע הציונים: " + avg);
     }
 }`
         }
