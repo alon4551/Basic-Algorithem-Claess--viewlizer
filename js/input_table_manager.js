@@ -134,9 +134,11 @@ class InputTableManager {
 
     addRow(val = '', type = 'int', note = '') {
         const id = this.nextId++;
+        const sVal = (val !== undefined && val !== null && String(val) !== 'undefined' && String(val) !== 'null') ? String(val) : '';
         this.inputs.push({
             id: id,
-            value: String(val !== undefined && val !== null ? val : ''),
+            value: sVal,
+            val: sVal,
             type: type || 'int',
             note: note || '',
             status: 'pending', // 'pending' | 'active' | 'consumed'
@@ -158,9 +160,10 @@ class InputTableManager {
         if (Array.isArray(valuesList)) {
             valuesList.forEach((item, idx) => {
                 if (typeof item === 'object' && item !== null) {
-                    this.addRow(item.value, item.type || 'int', item.note || `קלט #${idx + 1}`);
+                    const rawVal = item.value !== undefined ? item.value : (item.val !== undefined ? item.val : '');
+                    this.addRow(rawVal, item.type || 'int', item.note || item.label || `קלט #${idx + 1}`);
                 } else {
-                    const str = String(item);
+                    const str = (item !== undefined && item !== null && String(item) !== 'undefined' && String(item) !== 'null') ? String(item) : '';
                     const type = /^-?\d+$/.test(str) ? 'int' : (/^-?\d+\.\d+$/.test(str) ? 'double' : 'string');
                     this.addRow(str, type, `קלט #${idx + 1}`);
                 }
@@ -170,7 +173,12 @@ class InputTableManager {
     }
 
     getInputValues() {
-        return this.inputs.map(item => item.value);
+        return this.inputs.map(item => {
+            if (!item) return '';
+            const v = (item.value !== undefined && item.value !== null) ? item.value : (item.val !== undefined && item.val !== null ? item.val : '');
+            const s = String(v);
+            return (s === 'undefined' || s === 'null') ? '' : s;
+        });
     }
 
     randomizeValues(min = 10, max = 99) {
@@ -414,6 +422,7 @@ class InputTableManager {
                 const idx = parseInt(e.target.dataset.index, 10);
                 if (this.inputs[idx]) {
                     this.inputs[idx].value = e.target.value;
+                    this.inputs[idx].val = e.target.value;
                     this.notifyChange();
                 }
             });

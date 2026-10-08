@@ -2370,6 +2370,306 @@ body {
     }
 }
 
+/* מצב מקסום של במת ההמחשה הראשית (Main Stage Maximized) */
+.main-stage-card.is-maximized {
+    position: fixed !important;
+    top: 65px !important;
+    bottom: 15px !important;
+    right: 15px !important;
+    left: 15px !important;
+    z-index: 10000 !important;
+    border: 2px solid var(--primary, #0284c7) !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4) !important;
+    background: #ffffff !important;
+    resize: none !important;
+    margin: 0 !important;
+    max-height: none !important;
+    height: auto !important;
+}
+
+.main-stage-card.is-maximized .card-body {
+    max-height: calc(100vh - 170px) !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+}
+
+/* =========================================================
+   סרגל בקרה צף בתוך חלון במת ההמחשה הממוקסם
+   ========================================================= */
+.maximized-floating-controls {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.94);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 30px;
+    padding: 0.45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    z-index: 10001;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    color: #ffffff;
+    direction: rtl;
+}
+
+.max-ctrl-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.btn-max-ctrl {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 0.32rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.btn-max-ctrl:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+}
+
+.btn-max-ctrl.btn-max-play {
+    background: #0284c7;
+    border-color: #38bdf8;
+}
+
+.btn-max-ctrl.btn-max-play:hover {
+    background: #0369a1;
+}
+
+.max-ctrl-divider {
+    width: 1px;
+    height: 22px;
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.max-ctrl-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+}
+
+.max-ctrl-step-badge {
+    background: #0284c7;
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.15rem 0.55rem;
+    border-radius: 12px;
+    font-family: 'Consolas', monospace;
+    white-space: nowrap;
+}
+
+.max-ctrl-desc {
+    max-width: 340px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.76rem;
+    color: #cbd5e1;
+}
+
+/* =========================================================
+   מודאל קלט ידידותי עבור Console.ReadLine (Alert / Prompt Popup)
+   ========================================================= */
+.single-input-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    direction: rtl;
+}
+
+.single-input-modal-card {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+    width: 90%;
+    max-width: 480px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    animation: popInModal10th 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popInModal10th {
+    from {
+        opacity: 0;
+        transform: scale(0.92) translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.single-input-modal-header {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: #ffffff;
+    padding: 0.85rem 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.single-input-modal-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.single-input-modal-close {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 1.2rem;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 0.1rem 0.35rem;
+    transition: color 0.15s;
+}
+
+.single-input-modal-close:hover {
+    color: #ffffff;
+}
+
+.single-input-modal-body {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.single-input-modal-instruction {
+    font-size: 0.88rem;
+    color: #334155;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.single-input-meta-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    direction: ltr;
+}
+
+.single-input-meta-box code {
+    background: #e2e8f0;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.single-input-field-wrapper {
+    margin-top: 0.3rem;
+}
+
+.single-input-input {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    font-size: 1.05rem;
+    font-family: 'Consolas', monospace;
+    border: 2px solid #0284c7;
+    border-radius: 8px;
+    outline: none;
+    background: #f8fafc;
+    color: #0f172a;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+    direction: ltr;
+    text-align: left;
+    box-sizing: border-box;
+}
+
+.single-input-input:focus {
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.25);
+}
+
+.single-input-error {
+    font-size: 0.82rem;
+    color: #ef4444;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    padding: 0.45rem 0.7rem;
+    line-height: 1.4;
+}
+
+.single-input-modal-footer {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 0.75rem 1.2rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
+.btn-input-modal {
+    padding: 0.5rem 1.15rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-input-modal-secondary {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+}
+
+.btn-input-modal-secondary:hover {
+    background: #e2e8f0;
+}
+
+.btn-input-modal-primary {
+    background: #0284c7;
+    border: 1px solid #0369a1;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+}
+
+.btn-input-modal-primary:hover {
+    background: #0369a1;
+    transform: translateY(-1px);
+}
+
+
 
 
 

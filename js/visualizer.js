@@ -148,6 +148,28 @@ class Visualizer10thApp {
         this.dom.btnOpenSetup = document.getElementById('btn-open-setup');
         this.dom.btnCloseInitCard = document.getElementById('btn-close-init-card');
 
+        // מקסום במה ראשית וסרגל בקרה צף
+        this.dom.btnMaximizeMainStage = document.getElementById('btn-maximize-main-stage');
+        this.dom.maxFloatingControls = document.getElementById('maximized-floating-controls');
+        this.dom.maxBtnPrev = document.getElementById('max-btn-prev');
+        this.dom.maxBtnPlay = document.getElementById('max-btn-play');
+        this.dom.maxBtnNext = document.getElementById('max-btn-next');
+        this.dom.maxBtnReset = document.getElementById('max-btn-reset');
+        this.dom.maxStepCounter = document.getElementById('max-step-counter');
+        this.dom.maxStatusDesc = document.getElementById('max-status-desc');
+        this.dom.maxBtnClose = document.getElementById('max-btn-close');
+
+        // מודאל קלט ידידותי עבור Console.ReadLine
+        this.dom.singleInputModal = document.getElementById('single-input-modal');
+        this.dom.singleInputInstruction = document.getElementById('single-input-instruction');
+        this.dom.singleInputCmd = document.getElementById('single-input-cmd');
+        this.dom.singleInputType = document.getElementById('single-input-type');
+        this.dom.singleInputField = document.getElementById('single-input-field');
+        this.dom.singleInputError = document.getElementById('single-input-error');
+        this.dom.btnConfirmSingleInput = document.getElementById('btn-confirm-single-input');
+        this.dom.btnCancelSingleInput = document.getElementById('btn-cancel-single-input');
+        this.dom.btnCloseSingleInputModal = document.getElementById('btn-close-single-input-modal');
+
         this.dom.dynamicMemoryStage = document.getElementById('dynamic-memory-stage');
         this.dom.cardEmptyState = document.getElementById('card-empty-state');
 
@@ -605,6 +627,59 @@ class Visualizer10thApp {
         // ניקוי קונסול
         this.dom.btnClearConsole.addEventListener('click', () => {
             this.dom.consoleOutput.textContent = '';
+        });
+
+        // כפתורי סרגל בקרה צף ומקסום במת המחשה
+        if (this.dom.btnMaximizeMainStage) {
+            this.dom.btnMaximizeMainStage.addEventListener('click', () => this.toggleMaximizeMainStage());
+        }
+        if (this.dom.maxBtnPrev) {
+            this.dom.maxBtnPrev.addEventListener('click', () => this.stepPrev());
+        }
+        if (this.dom.maxBtnNext) {
+            this.dom.maxBtnNext.addEventListener('click', () => this.stepNext());
+        }
+        if (this.dom.maxBtnPlay) {
+            this.dom.maxBtnPlay.addEventListener('click', () => this.togglePlay());
+        }
+        if (this.dom.maxBtnReset) {
+            this.dom.maxBtnReset.addEventListener('click', () => this.reset());
+        }
+        if (this.dom.maxBtnClose) {
+            this.dom.maxBtnClose.addEventListener('click', () => this.toggleMaximizeMainStage(false));
+        }
+
+        // כפתורי מודאל קלט ידידותי עבור Console.ReadLine
+        if (this.dom.btnConfirmSingleInput) {
+            this.dom.btnConfirmSingleInput.addEventListener('click', () => this.confirmSingleInput());
+        }
+        if (this.dom.btnCancelSingleInput) {
+            this.dom.btnCancelSingleInput.addEventListener('click', () => this.closeSingleInputModal());
+        }
+        if (this.dom.btnCloseSingleInputModal) {
+            this.dom.btnCloseSingleInputModal.addEventListener('click', () => this.closeSingleInputModal());
+        }
+        if (this.dom.singleInputField) {
+            this.dom.singleInputField.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.confirmSingleInput();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    this.closeSingleInputModal();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (this.dom.cardMainStage && this.dom.cardMainStage.classList.contains('is-maximized')) {
+                    this.toggleMaximizeMainStage(false);
+                }
+                if (this.dom.singleInputModal && this.dom.singleInputModal.style.display !== 'none') {
+                    this.closeSingleInputModal();
+                }
+            }
         });
     }
 
@@ -1169,6 +1244,18 @@ class Visualizer10thApp {
 
         // הדגשת שורה בטבלת מעקב
         this.highlightTraceTableRow(idx);
+
+        // סנכרון סרגל בקרה צף במצב מקסום
+        this.syncMaximizedControls();
+
+        // מודאל קלט ידידותי עבור Console.ReadLine כאשר יש קלט בודד
+        if (frame.isInputStep && this.hasSingleInput() && !this._hasPromptedModalForRun) {
+            const wasPlaying = this.isPlaying;
+            if (this.isPlaying) this.pause();
+            this._wasPlayingBeforeModal = wasPlaying;
+            this.openSingleInputModal(frame);
+            this._hasPromptedModalForRun = true;
+        }
     }
 
     highlightActiveLine(lineNum, isInput = false) {
@@ -1916,6 +2003,7 @@ class Visualizer10thApp {
         this.dom.btnPlay.innerHTML = '<span>⏸️</span><span>השהה</span>';
         this.dom.btnPlay.classList.remove('btn-ctrl-primary');
         this.dom.btnPlay.classList.add('btn-ctrl-secondary');
+        this.syncMaximizedControls();
 
         this.playTimer = setInterval(() => {
             if (this.currentFrameIdx < this.frames.length - 1) {
@@ -1937,6 +2025,7 @@ class Visualizer10thApp {
             this.dom.btnPlay.classList.remove('btn-ctrl-secondary');
             this.dom.btnPlay.classList.add('btn-ctrl-primary');
         }
+        this.syncMaximizedControls();
     }
 
     stepNext() {
@@ -1958,7 +2047,194 @@ class Visualizer10thApp {
     reset() {
         this.flushPendingRecompile();
         this.pause();
+        this._hasPromptedModalForRun = false;
         this.renderFrame(0, true);
+        this.syncMaximizedControls();
+    }
+
+    toggleMaximizeMainStage(force = null) {
+        if (!this.dom.cardMainStage) return;
+        const isMax = (force !== null) ? force : !this.dom.cardMainStage.classList.contains('is-maximized');
+        this.dom.cardMainStage.classList.toggle('is-maximized', isMax);
+
+        if (this.dom.btnMaximizeMainStage) {
+            this.dom.btnMaximizeMainStage.textContent = isMax ? '🗗' : '⛶';
+            this.dom.btnMaximizeMainStage.title = isMax ? 'שחזר גודל במת אנימציה' : 'מקסם במת אנימציה';
+        }
+
+        if (this.dom.maxFloatingControls) {
+            this.dom.maxFloatingControls.style.display = isMax ? 'flex' : 'none';
+        }
+
+        this.syncMaximizedControls();
+    }
+
+    syncMaximizedControls() {
+        if (!this.frames || this.frames.length === 0) {
+            if (this.dom.maxStepCounter) this.dom.maxStepCounter.textContent = 'צעד 0 / 0';
+            if (this.dom.maxStatusDesc) this.dom.maxStatusDesc.textContent = this.dom.statusText ? this.dom.statusText.textContent : 'אין צעדים';
+            return;
+        }
+        const frame = this.frames[this.currentFrameIdx] || {};
+
+        if (this.dom.maxStepCounter) {
+            this.dom.maxStepCounter.textContent = `צעד ${this.currentFrameIdx + 1} / ${this.frames.length}`;
+        }
+        if (this.dom.maxStatusDesc) {
+            this.dom.maxStatusDesc.textContent = frame.description || '';
+        }
+        if (this.dom.maxBtnPlay) {
+            this.dom.maxBtnPlay.innerHTML = this.isPlaying ? '<span>⏸️</span><span>השהה</span>' : '<span>▶️</span><span>נגן</span>';
+        }
+    }
+
+    hasSingleInput() {
+        if (!this.frames || this.frames.length === 0) return false;
+        const uniqueInputs = new Set();
+        for (const s of this.frames) {
+            if (s.isInputStep && s.inputEvent) {
+                const key = s.inputEvent.index !== undefined ? s.inputEvent.index : s.inputEvent;
+                uniqueInputs.add(key);
+            }
+        }
+        if (uniqueInputs.size > 0) {
+            return uniqueInputs.size === 1;
+        }
+        const inputSnaps = this.frames.filter(s => s.isInputStep);
+        return inputSnaps.length === 1;
+    }
+
+    openSingleInputModal(stepSnapshot = null) {
+        if (!this.dom.singleInputModal) return;
+        const snap = stepSnapshot || this.frames[this.currentFrameIdx] || {};
+        const inputEvent = snap.inputEvent || {};
+        const targetVar = snap.targetVar || inputEvent.target || 'קלט';
+        const type = inputEvent.type || 'string';
+
+        let currentVal = this._lastSingleInput;
+        if (currentVal === undefined || currentVal === null || currentVal === 'undefined' || currentVal === 'null') {
+            const tableVal = this.inputTableManager?.inputs?.[0]?.value ?? this.inputTableManager?.inputs?.[0]?.val;
+            if (tableVal !== undefined && tableVal !== null && tableVal !== 'undefined' && tableVal !== 'null') {
+                currentVal = tableVal;
+            } else if (inputEvent.rawVal && inputEvent.rawVal !== 'undefined' && inputEvent.rawVal !== 'null') {
+                currentVal = inputEvent.rawVal;
+            } else {
+                currentVal = '';
+            }
+        }
+
+        if (this.dom.singleInputInstruction) {
+            this.dom.singleInputInstruction.textContent = `התוכנית ממתינה לקלט מהמשתמש. הזן ערך עבור המשתנה '${targetVar}' (מטיפוס ${type}):`;
+        }
+        if (this.dom.singleInputCmd) {
+            this.dom.singleInputCmd.textContent = snap.activeLineText || 'Console.ReadLine()';
+        }
+        if (this.dom.singleInputType) {
+            this.dom.singleInputType.textContent = type;
+        }
+        if (this.dom.singleInputField) {
+            this.dom.singleInputField.value = currentVal;
+            this.dom.singleInputField.dataset.type = type;
+            this.dom.singleInputField.dataset.target = targetVar;
+            this.dom.singleInputField.placeholder = type === 'int' ? 'לדוגמה: 42' : (type === 'double' ? 'לדוגמה: 3.14' : 'הזן ערך...');
+        }
+        if (this.dom.singleInputError) {
+            this.dom.singleInputError.style.display = 'none';
+            this.dom.singleInputError.textContent = '';
+        }
+        this.dom.singleInputModal.style.display = 'flex';
+        setTimeout(() => {
+            if (this.dom.singleInputField) {
+                this.dom.singleInputField.focus();
+                this.dom.singleInputField.select();
+            }
+        }, 50);
+    }
+
+    closeSingleInputModal() {
+        if (this.dom.singleInputModal) {
+            this.dom.singleInputModal.style.display = 'none';
+        }
+    }
+
+    confirmSingleInput() {
+        if (!this.dom.singleInputField) return;
+        const rawVal = this.dom.singleInputField.value;
+        const type = this.dom.singleInputField.dataset.type || 'string';
+        const targetVar = this.dom.singleInputField.dataset.target || 'קלט';
+
+        // בדיקת תקינות מקדימה במודאל
+        if (type === 'int') {
+            if (!/^-?\d+$/.test(rawVal.trim())) {
+                this.showSingleInputError(`שגיאת המרה: הערך "${rawVal}" אינו מספר שלם (int) תקין!`);
+                return;
+            }
+        } else if (type === 'double' || type === 'float') {
+            if (isNaN(parseFloat(rawVal.trim()))) {
+                this.showSingleInputError(`שגיאת המרה: הערך "${rawVal}" אינו מספר עשרוני (double) תקין!`);
+                return;
+            }
+        } else if (type === 'bool') {
+            const low = rawVal.trim().toLowerCase();
+            if (low !== 'true' && low !== 'false') {
+                this.showSingleInputError(`שגיאת המרה: הערך "${rawVal}" אינו ערך בוליאני תקין (true / false)!`);
+                return;
+            }
+        } else if (type === 'char') {
+            if (rawVal.trim().length !== 1) {
+                this.showSingleInputError(`שגיאת המרה: הערך "${rawVal}" אינו תו בודד (char)!`);
+                return;
+            }
+        }
+
+        const cleanVal = type === 'string' ? rawVal : rawVal.trim();
+        this._lastSingleInput = cleanVal;
+
+        if (this.inputTableManager) {
+            const rowObj = {
+                id: 1,
+                value: cleanVal,
+                val: cleanVal,
+                type: type,
+                note: targetVar || 'קלט יחיד',
+                status: 'pending'
+            };
+            if (typeof this.inputTableManager.setValues === 'function') {
+                this.inputTableManager.setValues([rowObj]);
+            } else {
+                this.inputTableManager.inputs = [rowObj];
+                if (typeof this.inputTableManager.render === 'function') {
+                    this.inputTableManager.render();
+                }
+            }
+        }
+
+        this.closeSingleInputModal();
+        this._hasPromptedModalForRun = true;
+
+        const wasPlaying = this._wasPlayingBeforeModal || this.isPlaying;
+        this.recompile(true);
+
+        // מקדמים את הדיבאגר לצעד שלאחר הקלט כדי שהמשתמש יראה מיידית את הערך שנקלט
+        if (this.frames && this.frames.length > 0) {
+            const inputStepIdx = this.frames.findIndex(s => s.isInputStep);
+            if (inputStepIdx !== -1) {
+                const targetStep = Math.min(this.frames.length - 1, inputStepIdx + 1);
+                this.renderFrame(targetStep, true);
+            }
+        }
+
+        if (wasPlaying) {
+            this._wasPlayingBeforeModal = false;
+            this.play();
+        }
+    }
+
+    showSingleInputError(msg) {
+        if (this.dom.singleInputError) {
+            this.dom.singleInputError.textContent = msg;
+            this.dom.singleInputError.style.display = 'block';
+        }
     }
 
     setStatus(type, message) {

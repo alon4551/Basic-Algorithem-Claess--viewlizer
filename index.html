@@ -340,6 +340,7 @@
                             <span>⚙️</span>
                             <span>הגדרת קלט</span>
                         </button>
+                        <button type="button" id="btn-maximize-main-stage" class="btn-quick" title="מקסם / שחזר במת אנימציה">⛶</button>
                     </div>
                 </div>
 
@@ -485,6 +486,23 @@
                     </div>
 
                 </div>
+
+                <!-- סרגל בקרה צף במצב מקסום (Maximized Control Panel) -->
+                <div class="maximized-floating-controls" id="maximized-floating-controls" style="display: none;">
+                    <div class="max-ctrl-buttons">
+                        <button type="button" class="btn-max-ctrl btn-max-prev" id="max-btn-prev" title="צעד קודם">⏮️ קודם</button>
+                        <button type="button" class="btn-max-ctrl btn-max-play" id="max-btn-play" title="הפעל / השהה">▶️ נגן</button>
+                        <button type="button" class="btn-max-ctrl btn-max-next" id="max-btn-next" title="צעד הבא">⏭️ הבא</button>
+                        <button type="button" class="btn-max-ctrl btn-max-reset" id="max-btn-reset" title="איפוס">🔄 איפוס</button>
+                    </div>
+                    <div class="max-ctrl-divider"></div>
+                    <div class="max-ctrl-info">
+                        <span class="max-ctrl-step-badge" id="max-step-counter">צעד 1 / 1</span>
+                        <span class="max-ctrl-desc" id="max-status-desc">ממתין להרצה</span>
+                    </div>
+                    <div class="max-ctrl-divider"></div>
+                    <button type="button" class="btn-max-ctrl btn-max-close" id="max-btn-close" title="צא ממצב מקסום">🗗 צא ממקסום</button>
+                </div>
             </div>
 
             <!-- מפריד שינוי גובה אנכי בין במת הכרטיסים לכרטיסיות המעקב והמסוף (Vertical Resizer) -->
@@ -546,6 +564,36 @@
 
         </section>
     </main>
+
+    <!-- מודאל קלט ידידותי עבור Console.ReadLine -->
+    <div class="single-input-modal-overlay" id="single-input-modal" style="display: none;">
+        <div class="single-input-modal-card">
+            <div class="single-input-modal-header">
+                <div class="single-input-modal-title">
+                    <span>⌨️</span>
+                    <span>קלט נדרש מהמשתמש (Console.ReadLine)</span>
+                </div>
+                <button type="button" class="single-input-modal-close" id="btn-close-single-input-modal">✕</button>
+            </div>
+            <div class="single-input-modal-body">
+                <p class="single-input-modal-instruction" id="single-input-instruction">
+                    התוכנית ממתינה לקלט מהמשתמש. הזן ערך:
+                </p>
+                <div class="single-input-meta-box" id="single-input-meta">
+                    <span class="meta-label">פקודת קלט:</span> <code id="single-input-cmd">Console.ReadLine()</code>
+                    <span class="meta-label">טיפוס יעד:</span> <code id="single-input-type">string</code>
+                </div>
+                <div class="single-input-field-wrapper">
+                    <input type="text" id="single-input-field" class="single-input-input" placeholder="הזן ערך כאן..." autocomplete="off">
+                </div>
+                <div class="single-input-error" id="single-input-error" style="display: none;"></div>
+            </div>
+            <div class="single-input-modal-footer">
+                <button type="button" class="btn-input-modal btn-input-modal-secondary" id="btn-cancel-single-input">ביטול</button>
+                <button type="button" class="btn-input-modal btn-input-modal-primary" id="btn-confirm-single-input">אישור והמשך הרצה ↵</button>
+            </div>
+        </div>
+    </div>
 
     <!-- טעינת סקריפטים -->
     <script src="js/presets.js?v=4.0"></script>

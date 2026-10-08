@@ -21,9 +21,18 @@ class CSharp10thInterpreter {
 
     setInputQueue(inputs) {
         if (Array.isArray(inputs)) {
-            this.inputQueue = [...inputs];
+            this.inputQueue = inputs.map(item => {
+                if (item === undefined || item === null) return '';
+                if (typeof item === 'object') {
+                    const v = item.value !== undefined ? item.value : (item.val !== undefined ? item.val : '');
+                    const s = String(v);
+                    return (s === 'undefined' || s === 'null') ? '' : s;
+                }
+                const s = String(item);
+                return (s === 'undefined' || s === 'null') ? '' : s;
+            });
         } else if (typeof inputs === 'string') {
-            this.inputQueue = inputs.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+            this.inputQueue = inputs.split('\n').map(s => s.trim()).filter(s => s.length > 0 && s !== 'undefined' && s !== 'null');
         } else {
             this.inputQueue = [];
         }
@@ -858,6 +867,21 @@ class Runtime10thEnvironment {
         this.recordFrame(line, `הדפסה לקונסול: "${text}"`, { output: text });
     }
 
+    isDirectReadLineCall(expr) {
+        if (!expr) return false;
+        const clean = expr.trim().replace(/;+$/, '').trim();
+        return clean === 'Console.ReadLine()' || clean === 'Console.ReadLine' ||
+            clean === 'reader.nextLine()' || clean === 'reader.next()' ||
+            clean === 'scanner.nextLine()' || clean === 'scanner.next()' ||
+            clean === 'in.readLine()' || clean === 'input.readLine()';
+    }
+
+    isStringType(type) {
+        if (!type) return false;
+        const t = String(type).trim().toLowerCase();
+        return t === 'string' || t === 'system.string' || t === 'var';
+    }
+
     executeAssignmentOrDecl(raw, scopeVars, line) {
         raw = raw.trim().replace(/;+$/, '').trim();
         if (raw.length === 0) return;
@@ -919,12 +943,30 @@ class Runtime10thEnvironment {
                 this.recordFrame(line, `השמה מורכבת: ${target} ${op} ${rhsVal} ➔ ${newVal}`);
                 return;
             } else {
-                const rhsVal = this.evalExpr(expr, scopeVars, line);
+                const cleanExpr = expr.trim().replace(/;+$/, '').trim();
+                const isDirectInput = this.isDirectReadLineCall(cleanExpr);
 
-                // בדיקה אם target מכיל טיפוס (הצהרת משתנה חדש: type varName = expr)
+                // בדיקה מקדימה: השמה ישירה של Console.ReadLine לטיפוס שאינו מחרוזת
                 const parts = target.split(/\s+/);
                 const isIndexAccess = target.endsWith(']');
                 const isMemberAccess = target.includes('.');
+                if (isDirectInput) {
+                    if (!isIndexAccess && !isMemberAccess && parts.length >= 2) {
+                        const declType = parts.slice(0, -1).join(' ').trim();
+                        if (!this.isStringType(declType)) {
+                            throw { message: `שגיאת הידור: לא ניתן להמיר באופן מרומז טיפוס 'string' ל-'${declType}'. האם התכוונת ל-${declType}.Parse(Console.ReadLine())?`, line, file: this.currentFile };
+                        }
+                    } else if (!isIndexAccess && !isMemberAccess) {
+                        const existingVal = scopeVars[target];
+                        if (existingVal !== undefined && typeof existingVal === 'number') {
+                            throw { message: `שגיאת הידור: לא ניתן להמיר באופן מרומז טיפוס 'string' למספר. האם התכוונת ל-int.Parse(Console.ReadLine())?`, line, file: this.currentFile };
+                        }
+                    }
+                }
+
+                const rhsVal = this.evalExpr(expr, scopeVars, line);
+
+                // בדיקה אם target מכיל טיפוס (הצהרת משתנה חדש: type varName = expr)
                 if (!isIndexAccess && !isMemberAccess && parts.length >= 2) {
                     const type = parts.slice(0, -1).join(' ');
                     const varName = parts[parts.length - 1];
@@ -1163,7 +1205,8 @@ class Runtime10thEnvironment {
         // Console.ReadLine()
         if (expr.startsWith('Console.ReadLine')) {
             const inputIdx = this.currentInputIndex++;
-            const rawVal = this.inputQueue.length > 0 ? this.inputQueue.shift() : '0';
+            let rawVal = this.inputQueue.length > 0 ? this.inputQueue.shift() : '';
+            if (rawVal === undefined || rawVal === null || rawVal === 'undefined' || rawVal === 'null') rawVal = '';
             const inputEvent = {
                 index: inputIdx,
                 rawVal: String(rawVal),
@@ -1187,7 +1230,11 @@ class Runtime10thEnvironment {
         if (expr.startsWith('int.Parse(') || expr.startsWith('Convert.ToInt32(') || expr.startsWith('Integer.parseInt(')) {
             const inner = expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim();
             const val = this.evalExpr(inner, scopeVars, line);
-            const res = parseInt(val, 10);
+            const strVal = String(val !== undefined && val !== null ? val : '').trim();
+            if (!/^-?\d+$/.test(strVal)) {
+                throw { message: `שגיאת זמן ריצה (FormatException): המחרוזת "${strVal}" אינה בפורמט מספר שלם (int) תקין!`, line, file: this.currentFile };
+            }
+            const res = parseInt(strVal, 10);
             const finalVal = isNaN(res) ? 0 : res;
             if (this.lastInputEvent && (inner.includes('ReadLine') || inner.includes('next'))) {
                 this.lastInputEvent.type = 'int';
@@ -1201,7 +1248,11 @@ class Runtime10thEnvironment {
             expr.startsWith('float.Parse(') || expr.startsWith('Convert.ToSingle(') || expr.startsWith('Float.parseFloat(')) {
             const inner = expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim();
             const val = this.evalExpr(inner, scopeVars, line);
-            const res = parseFloat(val);
+            const strVal = String(val !== undefined && val !== null ? val : '').trim();
+            if (isNaN(parseFloat(strVal)) || !/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(strVal)) {
+                throw { message: `שגיאת זמן ריצה (FormatException): המחרוזת "${strVal}" אינה בפורמט מספר עשרוני (double) תקין!`, line, file: this.currentFile };
+            }
+            const res = parseFloat(strVal);
             const finalVal = isNaN(res) ? 0.0 : res;
             if (this.lastInputEvent && (inner.includes('ReadLine') || inner.includes('next'))) {
                 this.lastInputEvent.type = 'double';
@@ -1215,7 +1266,10 @@ class Runtime10thEnvironment {
             const inner = expr.slice(expr.indexOf('(') + 1, expr.lastIndexOf(')')).trim();
             const val = this.evalExpr(inner, scopeVars, line);
             const strVal = String(val !== undefined && val !== null ? val : '');
-            const finalVal = strVal.length > 0 ? strVal.charAt(0) : '\0';
+            if (strVal.length !== 1) {
+                throw { message: `שגיאת זמן ריצה (FormatException): המחרוזת "${strVal}" אינה בפורמט תו יחיד (char)!`, line, file: this.currentFile };
+            }
+            const finalVal = strVal.charAt(0);
             if (this.lastInputEvent && (inner.includes('ReadLine') || inner.includes('next'))) {
                 this.lastInputEvent.type = 'char';
                 this.lastInputEvent.parsedVal = finalVal;
